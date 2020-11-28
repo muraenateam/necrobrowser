@@ -1,0 +1,2 @@
+# necrobrowser
+necromantic session control
