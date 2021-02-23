@@ -47,17 +47,10 @@ The Node libraries overrides are mostly related to better worker management for 
 Supposing that you have a sane NodeJS >= 12.x & NPM installation, you can install all the required dependencies with the following commands:
 
 ```
-$ git clone git@github.com:antisnatchor/necrobrowser-ng.git
-$ cd necrobrowser-ng
-$ npm install --save puppeteer puppeteer-extra puppeteer-extra-plugin-stealth express morgan redis shortid toml node-eval chalk typescript jest
-
-$ cd puppeteer/puppeteer-cluster && npm run-script build
-$ cd .. && npm install ./puppeteer-cluster
+$ git clone https://github.com/muraenateam/necrobrowser.git
+$ cd necrobwoser
+$ npm install
 ```
-
-As you noticed we are using our own local fork of puppeteer-cluster,
-in order to customize its internals for Necro needs.
-
 NecroBrowser relies on Redis for data persistence. 
 Redis is expected at tcp://127.0.0.1:6379 (no SSL, no auth). 
 
