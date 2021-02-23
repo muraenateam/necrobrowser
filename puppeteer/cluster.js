@@ -1,6 +1,7 @@
 
 // overrides puppeteer-cluster  to expose extra functionality
-const { Cluster } = require('puppeteer-necro-cluster');
+const { Cluster } = require('@muraenateam/puppeteer-cluster');
+
 const fs = require('fs');
 const toml = require('toml');
 const os = require('os');
@@ -10,7 +11,6 @@ exports.ProxyUpstream = () => {
     //const proxy = 'socks5://localhost:1337';
     // Burp proxy to further inspect traffic
     const proxy = 'http://localhost:9999';
-
     return proxy
 }
 
