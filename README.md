@@ -28,7 +28,6 @@ There are plenty of use cases, for instance:
  - keep N fake personas on LinkedIn/Twitter/YourSocialNetwork active on Chrome to monitor/scrape info from your targets
  - automatically build Social Network connections 
  - automate interaction with target contact forms/chats to get target info
- - 
 
 In other words, NecroBrowser allows you to define your Puppeteer tasks in advance,
 which you can then call on a cluster of headless browsers, with persistence support via Redis.
@@ -221,4 +220,4 @@ library to interface with Chrome. It turned out the library was not reliable
 in some advanced cases we had in production.
 
 The old Go version is archived for reference here: 
-TODO ADD LINK
+https://github.com/muraenateam/necrobrowser-old-go
