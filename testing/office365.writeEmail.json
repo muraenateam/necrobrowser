@@ -2,7 +2,7 @@
   "name": "writeEmail",
   "task": {
     "type": "office365",
-    "name": "OutlookWriteEmail",
+    "name": ["OutlookWriteEmail"],
     "params": {
       "fixSession": "https://outlook.office.com/mail/inbox",
       "writeEmail": {

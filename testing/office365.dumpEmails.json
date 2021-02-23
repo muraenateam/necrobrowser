@@ -2,7 +2,7 @@
   "name": "dumpEmails",
   "task": {
     "type": "office365",
-    "name": "OutlookExtrude",
+    "name": ["OutlookExtrude"],
     "params": {
       "fixSession": "https://outlook.office.com/mail/inbox",
       "keywords": ["credentials", "microsoft"]

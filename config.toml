@@ -16,6 +16,10 @@ debug = false
 
     extrusionPath = "./extrusion"
 
+    # this is where all task profiles are kept, like:
+    # ./profiles/vOkg6KfnP
+    profilesPath = "./profiles"
+
     # listening address and port for the API
     host  = "0.0.0.0"
     port  = 3000
@@ -25,7 +29,7 @@ debug = false
     # the safest is to run each task in its own browser
     # but in cases where you prefer opening a single browser
     # and tasks in their own incognito tab, use page
-    concurrency = "browser"
+    concurrency = "necro"
 
     # how many sessions to process simultaneously
     # for max performances: number or cores / 2
@@ -39,7 +43,7 @@ debug = false
     # page options
     [cluster.page]
         # browser window size
-        windowSize = "1920,1080"
+        windowSize = "800,600"
 
         # page scale factor (zoom level)
         # 1.5 == 150% useful when using headless=false and large screen resolutions above 2K

@@ -1,5 +1,6 @@
-const { Cluster } = require('puppeteer-cluster');
-// overrides puppeteer-cluster  to expose extra fields/internals via the api/logic
+
+// overrides puppeteer-cluster  to expose extra functionality
+const { Cluster } = require('puppeteer-necro-cluster');
 const fs = require('fs');
 const toml = require('toml');
 const os = require('os');
@@ -26,7 +27,7 @@ exports.ParseConfig = () => {
         console.log(`error parsing toml config: ${e}`)
     }
 
-    if(tomlConfig.platform.type === "freebsd"){
+    if(tomlConfig.platform.type === "freebsd") {
         console.log(`platform is ${os.platform()}, mocking node arch to hack puppeteer...`)
 
         // NOTE: hack to make puppeteer work on FreeBSD without overriding the shit out of its prototypes
@@ -35,24 +36,23 @@ exports.ParseConfig = () => {
         // 2. override the arch
         // 4. see internals at node_modules/puppeteer/lib/esm/puppeteer/node/Launcher.js
         // the main issue was resolveExecutablePath() that is not trivial to override
-        os.arch = function(){
+        os.arch = function () {
             return 'arm64'
         }
 
         if (fs.existsSync(tomlConfig.platform.puppetPath)) {
             //nothing to do
-        }else{
+        } else {
             console.error('error: /usr/bin/chromium-browser not found. run the following:\nln -s /usr/local/share/chromium/chrome /usr/bin/chromium-browser')
             process.exit(1)
         }
-
-        if (fs.existsSync(tomlConfig.platform.extrusionPath)) {
-            //nothing to do
-        }else{
-            console.error('error: extrusionPath not found. create the dir & make sure perms are ok')
-            process.exit(1)
-        }
     }
+
+    if (!fs.existsSync(tomlConfig.platform.extrusionPath) && !fs.existsSync(tomlConfig.platform.profilesPath)) {
+        console.error('error: check that extrusionPath and profilesPath are existing directories')
+        process.exit(1)
+    }
+
 
     configuration = tomlConfig
     return tomlConfig
@@ -86,6 +86,10 @@ exports.InitCluster = async(puppeteer) => {
     }
 
     switch (configuration.cluster.concurrency) {
+        case "necro":
+            // full user-data-dir segregation in itw own directory, task in its own browser
+            standardOptions["concurrency"] = Cluster.CONCURRENCY_NECRO;
+            break
         case "browser":
             // opens each task on its own browser
             standardOptions["concurrency"] = Cluster.CONCURRENCY_BROWSER;

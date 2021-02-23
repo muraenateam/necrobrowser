@@ -1,6 +1,5 @@
 const puppeteer = require('puppeteer-extra')
 const StealthPlugin = require('puppeteer-extra-plugin-stealth')
-const { Cluster } = require('puppeteer-cluster');
 const necrohelp = require('../../tasks/helpers/necrohelp')
 const db = require('../../db/db')
 
