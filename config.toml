@@ -53,7 +53,7 @@ debug = false
     # non-headless means normal chromium GUI
     # in production, and in general unless you encouter headless bugs, you
     # should always use headless = true
-    headless = false
+    headless = true
 
     # each submitted task is kept in redis, so we can keep the session
     # alive by just doing a GET on the task fixSession url
