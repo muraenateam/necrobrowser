@@ -4,22 +4,15 @@ const clusterLib = require('../../puppeteer/cluster')
 exports.ScreenshotFullPage = async function(page, taskId, url) {
     console.log(`[${taskId}] taking screenshot of ${url}`)
     await page.goto(url);
-    let screenshotPath = `${clusterLib.GetConfig().platform.extrusionPath}/screenshot_${taskId}_${Date.now()}.png`
-    await page.screenshot({ fullPage: true, path: screenshotPath });
-    let extrudedHashKey = `screenshot_${url}`
-    await db.AddExtrudedData(taskId, extrudedHashKey, screenshotPath)
+    let screenshotData = await page.screenshot({ fullPage: true, encoding: "base64" });
+    await db.AddExtrudedData(taskId, url, screenshotData)
 }
 
 exports.ScreenshotCurrentPage = async function(page, taskId) {
-    console.log(`[${taskId}] taking screenshot of ${await page.url()}`)
-
-    // let screenshotPath = `${clusterLib.GetConfig().platform.extrusionPath}/screenshot_${taskId}_${Date.now()}.png`
-    // await page.screenshot({ fullPage: true, path: screenshotPath });
-
-    // we store the base64 encoded screenshot data directly in redis instead of saving the file to disk
+    let url = await page.url()
+    console.log(`[${taskId}] taking screenshot of ${url}`)
     let screenshotData = await page.screenshot({ fullPage: true, encoding: "base64" });
-    let extrudedHashKey = `screenshot_${await page.url()}`
-    await db.AddExtrudedData(taskId, extrudedHashKey, screenshotData)
+    await db.AddExtrudedData(taskId, url, screenshotData)
 }
 
 exports.SetPageScaleFactor = async function(page, scaleFactor) {

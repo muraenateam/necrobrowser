@@ -39,9 +39,15 @@ exports.AddExtrudedData = function(key, entryKey, entryValue) {
         console.error("redis error: " + error);
     });
 
+    const id = shortid.generate();
     let dataKey = `${key}:extruded`
-    client.hmset([dataKey, entryKey, entryValue], function(err, res) {
-        // TODO catch errors if any
+    let dataKeyId = `${dataKey}:${id}`
+    client.rpush([dataKey, dataKeyId], function(err, reply) {
+        //console.log(`rpush in ${dataKey} of ${dataKeyId}`);
+    });
+
+    client.hmset([dataKeyId, entryKey, entryValue], function(err, res) {
+        //console.log(`hmset on ${dataKeyId}`);
     });
 }
 
@@ -85,9 +91,9 @@ exports.GetTask = async function (key) {
         console.error("redis error: " + error);
     });
 
-    // NOTE: cookies is base64 encoded JSON stringify of all cookies array. makes redis mapping less complicated
     const hgetall = util.promisify(client.hgetall).bind(client);
     const hget = util.promisify(client.hget).bind(client);
+    const lrange = util.promisify(client.lrange).bind(client);
 
     let status = await hget(key, "status");
     // todo implement as switch
@@ -103,8 +109,14 @@ exports.GetTask = async function (key) {
 
         // NOTE we need to promisify the redis-node calls to make it fully async and properly return values
         try {
-            let value = await hgetall(dataKey);
-            return [status, value];
+            let extruded_entries = await lrange(dataKey, 0, -1)
+            let result = []
+            for(let key of extruded_entries){
+                let value = await hgetall(key);
+                result.push(value)
+            }
+
+            return [status, result];
         } catch (e) {
             console.log(`getTask error:${e}`);
             return ["error", e]
