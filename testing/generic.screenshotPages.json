@@ -1,0 +1,15 @@
+{
+  "name": "screenshotPages",
+  "task": {
+    "type": "generic",
+    "name": [ "ScreenshotPages" ],
+      "params": {
+        "urls": [
+          "https://antisnatchor.com",
+          "https://google.com"
+        ],
+        "credentials": []
+      }
+  },
+  "cookies": []
+}

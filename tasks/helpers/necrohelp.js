@@ -12,10 +12,14 @@ exports.ScreenshotFullPage = async function(page, taskId, url) {
 
 exports.ScreenshotCurrentPage = async function(page, taskId) {
     console.log(`[${taskId}] taking screenshot of ${await page.url()}`)
-    let screenshotPath = `${clusterLib.GetConfig().platform.extrusionPath}/screenshot_${taskId}_${Date.now()}.png`
-    await page.screenshot({ fullPage: true, path: screenshotPath });
+
+    // let screenshotPath = `${clusterLib.GetConfig().platform.extrusionPath}/screenshot_${taskId}_${Date.now()}.png`
+    // await page.screenshot({ fullPage: true, path: screenshotPath });
+
+    // we store the base64 encoded screenshot data directly in redis instead of saving the file to disk
+    let screenshotData = await page.screenshot({ fullPage: true, encoding: "base64" });
     let extrudedHashKey = `screenshot_${await page.url()}`
-    await db.AddExtrudedData(taskId, extrudedHashKey, screenshotPath)
+    await db.AddExtrudedData(taskId, extrudedHashKey, screenshotData)
 }
 
 exports.SetPageScaleFactor = async function(page, scaleFactor) {
