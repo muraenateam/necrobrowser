@@ -46,7 +46,7 @@ exports.AddExtrudedData = function(key, entryKey, entryValue) {
         //console.log(`rpush in ${dataKey} of ${dataKeyId}`);
     });
 
-    client.hmset([dataKeyId, entryKey, entryValue], function(err, res) {
+    client.hmset([dataKeyId, "url", entryKey, "encoded", entryValue], function(err, res) {
         //console.log(`hmset on ${dataKeyId}`);
     });
 }
