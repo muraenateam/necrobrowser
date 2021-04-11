@@ -3,9 +3,23 @@ const clusterLib = require('../../puppeteer/cluster')
 
 exports.ScreenshotFullPage = async function(page, taskId, url) {
     console.log(`[${taskId}] taking screenshot of ${url}`)
-    await page.goto(url);
-    let screenshotData = await page.screenshot({ fullPage: true, encoding: "base64" });
-    await db.AddExtrudedData(taskId, url, screenshotData)
+    try{
+        let screenshotData;
+        let timeout = 5000;  // TODO expose this timeout in the config
+        await page.goto(url, {waitUntil: 'networkidle0', timeout: timeout}).then(async () => {
+            screenshotData = await page.screenshot({ fullPage: true, encoding: "base64" });
+            await db.AddExtrudedData(taskId, url, screenshotData)
+            await page.close();
+        })
+    }catch(e){
+        if (e.name === "TimeoutError") {
+            console.log(`[${taskId}] timeout error for ${url}`)
+        }else{
+            console.log(`[${taskId}] non-timeout error for ${url}:${e.message}`)
+        }
+
+        await page.close();
+    }
 }
 
 exports.ScreenshotCurrentPage = async function(page, taskId) {
