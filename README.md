@@ -54,6 +54,9 @@ $ npm install
 NecroBrowser relies on Redis for data persistence. 
 Redis is expected at tcp://127.0.0.1:6379 (no SSL, no auth). 
 
+Create two directories: profiles and extrusion. These will be used to store segregated browser profiles
+and looted data.
+
 Once the installation is done, you can start (possibly in a screen/tmux) the tool with: 
 ```
 $ node necrobrowser.js
