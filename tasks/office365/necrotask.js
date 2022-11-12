@@ -3,6 +3,81 @@ const db = require('../../db/db')
 const clusterLib = require('../../puppeteer/cluster')
 const fs = require('fs')
 
+exports.AddAuthenticatorApp = async ({ page, data: [taskId, cookies, params] }) => {
+
+    // this is constant
+    const nextButtonSelector = "div.ms-Dialog-actionsRight > span:nth-child(2) > button"
+
+    await db.UpdateTaskStatus(taskId, "running")
+
+    await page.setCookie(...cookies);
+
+    await page.goto(params.fixSession);
+    //await necrohelp.ScreenshotCurrentPage(page, taskId)
+    await page.waitForTimeout(5000)
+
+    // Get "+ Add Sign-in method" and click on it
+    const assSignIn = await page.waitForSelector('i[data-icon-name="Add"]');
+    if(assSignIn !== null){
+        await assSignIn.click()
+    }
+
+    await page.waitForTimeout(3000)
+
+    //check for modal dialog open and get DropDown Menu, clicking on it
+    const modalDiag = await page.waitForSelector('div.ms-Dropdown-container')
+    if(modalDiag !== null){
+        await modalDiag.click()
+    }
+    await page.waitForTimeout(1000)
+
+    //Select the first dropdown option, Authenticator App
+    await page.click('div.ms-Callout-main > div > div > button').catch(console.error)
+    await page.waitForTimeout(1000)
+
+    // click on Add
+    await page.click(nextButtonSelector).catch(console.error)
+    await page.waitForTimeout(1000)
+
+    // Click on "I want to use a different authenticator app"
+    await page.click('div.ms-Dialog-content > div > div:nth-child(1) > div > div > button').catch(console.error)
+    await page.waitForTimeout(1000)
+
+    // click on Next
+    await page.click(nextButtonSelector).catch(console.error)
+    await page.waitForTimeout(3000)
+
+    // click on "Can't Scan Image"
+    await page.click('div.ms-Dialog-content > div > div > div > div > div:nth-child(4) > button').catch(console.error)
+    await page.waitForTimeout(1000)
+
+    const accountName = await page.evaluate('document.querySelector("div.ms-Dialog-content > div > div > div > div > div:nth-child(6) > span").innerText');
+    const secretKey = await page.evaluate('document.querySelector("div.ms-Dialog-content > div > div > div > div > div:nth-child(7) > span").innerText');
+
+    console.log(`[${taskId}] New Authenticator App accountName: ${accountName} with secretKey: ${secretKey}`)
+
+    // click on Next
+    await page.click(nextButtonSelector).catch(console.error)
+    await page.waitForTimeout(2000)
+
+    // get the OTP from the secretKey using totp-generator
+    const totp = await necrohelp.Totp(secretKey)
+    console.log(`[${taskId}] Generated OTP from secretKey ${secretKey}: ${totp}`)
+
+    // type the OTP in the input field
+    const input = 'div.ms-Dialog-content > div > div > div > div:nth-child(2) > div:nth-child(3) > div > div > input';
+    await page.type(input, totp, {delay: 300}).catch(console.error)
+
+    await page.waitForTimeout(2000)
+
+    // click on Next
+    await page.click(nextButtonSelector).catch(console.error)
+    await page.waitForTimeout(5000)
+
+    await db.UpdateTaskStatus(taskId, "completed")
+
+}
+
 exports.ScreenshotApps = async ({ page, data: [taskId, cookies, params] }) => {
     // update initial task status from queued to running
     await db.UpdateTaskStatus(taskId, "running")

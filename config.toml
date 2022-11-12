@@ -8,9 +8,7 @@ debug = false
     # supported platforms: freebsd, linux, darwin
     type = "linux"
 
-    # The full path to Chromium or Chrome executable
-    puppetPath = "/usr/bin/chromium"
-
+    # puppetPath = "/usr/bin/chromium-browser"
     # NOTE puppetPath is needed only on FreeBSD
     # make sure you have the Chromium binary
     # as /usr/bin/chromium-browser and when installing puppeteer

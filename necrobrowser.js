@@ -14,6 +14,7 @@ const c = require('chalk');
 
 (async () => {
     const clusterLib = require('./puppeteer/cluster')
+    const helper = require('./tasks/helpers/necrohelp')
     const loader = require('./tasks/loader')
     const db = require('./db/db')
 

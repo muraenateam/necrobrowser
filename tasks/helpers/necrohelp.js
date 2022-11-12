@@ -1,5 +1,6 @@
 const db = require('../../db/db')
 const clusterLib = require('../../puppeteer/cluster')
+const totp = require("totp-generator");
 
 exports.ScreenshotFullPage = async function(page, taskId, url) {
     console.log(`[${taskId}] taking screenshot of ${url}`)
@@ -48,4 +49,8 @@ exports.IsAlphanumeric = async function(str) {
     }
 
     return isAlphanumeric
+}
+
+exports.Totp = async function(secretKey) {
+    return totp(secretKey, { digits: 6 });
 }
