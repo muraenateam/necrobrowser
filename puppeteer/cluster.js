@@ -71,6 +71,7 @@ exports.InitCluster = async (puppeteer) => {
 		puppeteer,
 
 		puppeteerOptions: {
+			executablePath: configuration.platform.puppetPath,
 			headless: configuration.necro.headless,
 			userDataDir: configuration.paths.profilesPath,
 			args: this.GetPuppeteerArgs(),

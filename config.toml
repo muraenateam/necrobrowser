@@ -6,9 +6,11 @@ debug = false
 
 [platform]
     # supported platforms: freebsd, linux, darwin
-    type = "darwin"
+    type = "linux"
 
-    # puppetPath = "/usr/bin/chromium-browser"
+    # The full path to Chromium or Chrome executable
+    puppetPath = "/usr/bin/chromium"
+
     # NOTE puppetPath is needed only on FreeBSD
     # make sure you have the Chromium binary
     # as /usr/bin/chromium-browser and when installing puppeteer
@@ -43,7 +45,7 @@ debug = false
     # page options
     [cluster.page]
         # browser window size
-        windowSize = "800,600"
+        windowSize = "1600,1200"
 
         # page scale factor (zoom level)
         # 1.5 == 150% useful when using headless=false and large screen resolutions above 2K
@@ -53,7 +55,7 @@ debug = false
     # non-headless means normal chromium GUI
     # in production, and in general unless you encouter headless bugs, you
     # should always use headless = true
-    headless = true
+    headless = false
 
     # each submitted task is kept in redis, so we can keep the session
     # alive by just doing a GET on the task fixSession url
