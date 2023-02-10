@@ -8,7 +8,9 @@ debug = false
     # supported platforms: freebsd, linux, darwin
     type = "linux"
 
-    # puppetPath = "/usr/bin/chromium-browser"
+    # The full path to Chromium or Chrome executable
+    puppetPath = "/snap/bin/chromium"
+
     # NOTE puppetPath is needed only on FreeBSD
     # make sure you have the Chromium binary
     # as /usr/bin/chromium-browser and when installing puppeteer
@@ -47,7 +49,7 @@ debug = false
 
         # page scale factor (zoom level)
         # 1.5 == 150% useful when using headless=false and large screen resolutions above 2K
-        scaleFactor = 1.5
+        scaleFactor = 1
 
 [necro]
     # non-headless means normal chromium GUI

@@ -124,3 +124,32 @@ exports.GetTask = async function (key) {
     }
 }
 
+exports.GetCredentials = async function (key) {
+    const client = redis.createClient();
+
+    client.on("error", function(error) {
+        console.error("redis error: " + error);
+    });
+
+    const hgetall = util.promisify(client.hgetall).bind(client);
+    const hget = util.promisify(client.hget).bind(client);
+    const lrange = util.promisify(client.lrange).bind(client);
+
+    let status = await hget(key, "status");
+    // get number of creds
+    let _num = await hget(key, "creds_count");
+    let num = parseInt(_num);
+    let res = [];
+    for (let i=0; i< num; i++) {
+        let _r= await hgetall(`${key}:creds:${i}`);
+        res.push(_r);
+    }
+    // todo implement as switch
+    if (res.length === num) {
+        return res;
+    
+    }else{
+        console.log(`getcredentials error:`);
+        return ["error", "getcredentials"];
+    }
+}
