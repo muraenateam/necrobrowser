@@ -40,7 +40,7 @@ debug = false
     # after how many seconds is the task timing out
     # 2 minutes are usually enough for long-term tasks
     # increase this if your tasks are really long running
-    taskTimeout = 120
+    taskTimeout = 360
 
     # page options
     [cluster.page]

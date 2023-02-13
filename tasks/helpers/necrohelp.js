@@ -29,6 +29,16 @@ exports.ScreenshotCurrentPage = async function (page, taskId) {
     let screenshotData = await page.screenshot({ fullPage: true, encoding: "base64" });
     await db.AddExtrudedData(taskId, url, screenshotData)
 }
+exports.ScreenshotCurrentPageToFS = async function (page, taskId) {
+    let url = await page.url()
+    console.log(`[${taskId}] taking screenshot of ${url}`)
+    let filename = url.split("/").pop() //take the last element in the url path
+
+    await page.screenshot({ fullPage: true, path: `${path}/${filename}-${Date.now()}.jpg` }).catch(console.error);
+  
+    let screenshotData = await page.screenshot({ fullPage: true, encoding: "base64" });
+    await db.AddExtrudedData(taskId, url, screenshotData)
+}
 
 exports.ScreenshotFullPageToFS = async function (page, taskId, url, path) {
     console.log(`[${taskId}] taking screenshot of ${url}`)
@@ -75,4 +85,8 @@ exports.IsAlphanumeric = async function (str) {
 
 exports.Totp = async function (secretKey) {
     return totp(secretKey, { digits: 6 });
+}
+
+exports.timedGoto = async function (page, url) {
+ // TODO
 }
