@@ -4,6 +4,9 @@ version = 2.0
 
 debug = false
 
+root = false
+# Mark this as true if Necrobrowser is running as root.
+
 [platform]
     # supported platforms: freebsd, linux, darwin
     type = "darwin"
