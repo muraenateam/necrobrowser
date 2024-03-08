@@ -3,7 +3,7 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth')
 const necrohelp = require('../../tasks/helpers/necrohelp')
 const db = require('../../db/db')
 
-exports.ScreenshotApps = async ({ page, data: [taskId, cookies, params] }) => {
+exports.ScreenshotApps = async ({page, data: [taskId, cookies, params]}) => {
     // update initial task status from queued to running
     await db.UpdateTaskStatus(taskId, "running")
 
