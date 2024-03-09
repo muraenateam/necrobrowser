@@ -20,7 +20,7 @@ has_toc: true
 Clone the repository and install the dependencies:
 ```bash
 git clone https://github.com/muraenateam/necrobrowser.git
-cd necrobwoser
+cd necrobrowser
 npm install
 ```
 
