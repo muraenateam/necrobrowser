@@ -14,20 +14,18 @@ exports.ScreenshotPages = async ({ browser, page, data: [taskId, cookies, params
 
     const context = await browser.createIncognitoBrowserContext();
 
-    // parallelize page screenshot in multiple tabs of the same incognito context
-    do{
-        for(let i = 0; i < parallelTabs; i++){
-            let url = urls.pop();
-            if(typeof(url) === "undefined")
-                break;
-
-            promises.push(context.newPage().then(async page => {
-                await necrohelp.ScreenshotFullPage(page, taskId, url);
-            }))
+    // screenshot urls of interest
+    for(let url of params.urls){
+        let pName = url.split("/").reverse()[0]
+        if (pName === ""){
+            pName = "index"
         }
-        await Promise.all(promises).catch(e => console.log(e));
 
-    }while(index < urls.length)
+        await page.goto(url);
+        console.log(`[${taskId}] taking screenshot of page --> ${pName}`)
+        await page.waitForTimeout(1500)
+        await page.screenshot({path: `extrusion/screenshot_${pName}_${taskId}.png`});
+    }
 
     await db.UpdateTaskStatus(taskId, "completed")
 }

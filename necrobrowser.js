@@ -95,14 +95,20 @@ const c = require('chalk');
                 }
 
                 // store in redis
-                let cookies = JSON.stringify(req.body.cookies, null, 4);
-                let b64Cookies = await Buffer.from(cookies).toString('base64');
+                let cookies = []
+                if (typeof req.body.cookie !== 'undefined') {
+                    cookies = req.body.cookie;
+                }
+
+                let cookie_string = JSON.stringify(cookies, null, 4);
+                let b64Cookies = await Buffer.from(cookie_string).toString('base64');
+
                 const taskId = await db.AddTask(name, taskType, b64Cookies);
-                console.log(`[${taskId}] initiating necro -> name: [${name}] type: [${taskType}.${taskName}] cookies: [${req.body.cookies.length}]`);
+                console.log(`[${taskId}] initiating necro -> name: [${name}] type: [${taskType}.${taskName}] cookies: [${cookies}]`);
 
                 // queue the task in the cluster calling the right function
                 // NOTE: taskType and taskName are validated to be alphanumeric, so eval is safe here
-                await cluster.queue([taskId, req.body.cookies, taskParams], eval(`necrotask['${taskType}__Tasks'].${taskName}`));
+                await cluster.queue([taskId, cookies, taskParams], eval(`necrotask['${taskType}__Tasks'].${taskName}`));
 
                 necroIds.push(taskId)
             }
