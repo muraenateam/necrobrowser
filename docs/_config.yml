@@ -1,4 +1,4 @@
-title: Necrobrowser docs
+title: Necrobrowser
 plugins:
   - jekyll-relative-links
 relative_links:

@@ -1,6 +1,6 @@
 ---
 layout: home
-title: Home
+title: Necrobrowser
 permalink: /
 nav_order: 1
 ---
