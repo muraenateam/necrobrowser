@@ -135,6 +135,9 @@ exports.GetPuppeteerArgs = () => {
 			//'--ignore-certificate-errors' // this is just if proxy is enabled for debugging
 		]
 	}
+	if (configuration.root) {
+		puppeteerArgs.push('--no-sandbox','--disable-setuid-sandbox')
+	}
 	return puppeteerArgs
 }
 
