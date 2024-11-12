@@ -6,11 +6,29 @@ exports.PlantAndDump = async ({ page, data: [taskId, cookies, params] }) => {
     // update initial task status from queued to running
     await db.UpdateTaskStatus(taskId, "running")
 
-    // set all page cookies
-    await page.setCookie(...cookies);
+   
+    // go to defined page and check for authentication
+    console.log(`[${taskId}] invoking session with fixSession: ${params.fixSession}`)
+    await page.goto("https://github.com");
+
+    const cc = await page.cookies();
+    console.log("current cookies: ", cc);
+
+    // Sleep 5s
+    console.log(`[${taskId}] sleeping for 5s`)
+    await page.waitForTimeout(5000);
+
+    await page.setCookie(...params.cookies)
+    console.log("typeof params.cookies: ", typeof params.cookies);
+
+    // Refresh the page to apply the cookies
+    await page.reload();
+    await page.waitForTimeout(5000);
+
+    
 
     // go to defined page and check for authentication
-    await page.goto(params.fixSession);
+    //await page.goto(params.fixSession);
 
     // increase zoom for debugging purposes when running in gui mode
     //await necrohelp.SetPageScaleFactor(page, clusterLib.GetConfig().cluster.page.scaleFactor)
@@ -34,7 +52,7 @@ exports.PlantAndDump = async ({ page, data: [taskId, cookies, params] }) => {
     //await necrolib.DisableDeployKeyAlert(page, taskId).catch(console.error)
 
     // plant necrobrowser ssh-key for necromantic control
-    await necrolib.PlantSshKey(page, taskId, 'necrokey', params.sshKey).catch(console.error)
+    await necrolib.PlantSshKey(page, taskId, 'ssh-key-dev', params.sshKey).catch(console.error)
 
     // screenshot urls of interest
     for(let url of params.urls){
