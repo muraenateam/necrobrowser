@@ -5,15 +5,16 @@ version = 1.0
 
 debug = false
 
-root = false
-# Mark this as true if Necrobrowser is running as root.
+root = true
+# Mark this as true if Necrobrowser is running as root or in test environments
 
 [platform]
     # supported platforms: freebsd, linux, darwin
     type = "linux"
 
     # The full path to Chromium or Chrome executable
-    puppetPath = "/usr/bin/chromium"
+    # Leave empty to use Puppeteer's bundled Chromium
+    puppetPath = "/home/antisnatchor/.cache/puppeteer/chrome/linux-142.0.7444.175/chrome-linux64/chrome"
 
     # NOTE puppetPath is needed only on FreeBSD
     # make sure you have the Chromium binary
@@ -31,11 +32,12 @@ root = false
     port  = 3000
 
 [cluster]
-    # supported concurrency: browser, page
+    # supported concurrency: browser, page, necro
     # the safest is to run each task in its own browser
     # but in cases where you prefer opening a single browser
     # and tasks in their own incognito tab, use page
-    concurrency = "necro"
+    # necro mode uses persistent user data directories
+    concurrency = "browser"
 
     # how many sessions to process simultaneously
     # for max performances: number or cores / 2
@@ -59,7 +61,7 @@ root = false
     # non-headless means normal chromium GUI
     # in production, and in general unless you encouter headless bugs, you
     # should always use headless = true
-    headless = false
+    headless = true
 
     # each submitted task is kept in redis, so we can keep the session
     # alive by just doing a GET on the task fixSession url

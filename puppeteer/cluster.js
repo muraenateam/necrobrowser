@@ -64,18 +64,40 @@ exports.ParseConfig = () => {
 }
 
 exports.InitCluster = async (puppeteer) => {
+	let puppeteerOptions = {
+		headless: configuration.necro.headless,
+		args: this.GetPuppeteerArgs(),
+	};
+
+	// Only use userDataDir if concurrency is 'necro' mode
+	// This avoids browser lock issues in tests
+	if (configuration.cluster.concurrency === "necro") {
+		puppeteerOptions.userDataDir = configuration.paths.profilesPath;
+	}
+
+	// Only set executablePath if it's explicitly configured
+	if (configuration.platform.puppetPath && configuration.platform.puppetPath !== "") {
+		puppeteerOptions.executablePath = configuration.platform.puppetPath;
+	}
+
+	// Determine maxConcurrency - use 1 in test environments to avoid resource issues
+	let maxConcurrency = configuration.cluster.poolSize;
+	if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID) {
+		maxConcurrency = 1;
+		console.log('[test mode] Setting maxConcurrency to 1');
+	}
+
 	let standardOptions = {
-		maxConcurrency: configuration.cluster.poolSize,   // parallel browsers to run at the same time
-		timeout: configuration.cluster.taskTimeout * 1000,  // two minutes timeout for tasks
+		maxConcurrency: maxConcurrency,   // parallel browsers to run at the same time
+		timeout: configuration.cluster.taskTimeout * 1000,  // timeout for tasks
 
 		puppeteer,
 
-		puppeteerOptions: {
-			executablePath: configuration.platform.puppetPath,
-			headless: configuration.necro.headless,
-			userDataDir: configuration.paths.profilesPath,
-			args: this.GetPuppeteerArgs(),
-		},
+		puppeteerOptions: puppeteerOptions,
+
+		// Add retry logic for browser launch failures
+		retryLimit: 2,
+		retryDelay: 1000,
 	};
 
 	switch (configuration.platform.type) {

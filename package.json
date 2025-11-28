@@ -3,7 +3,13 @@
   "version": "1.0",
   "description": "Necrobrowser is a browser instrumentation microservice written in NodeJS: it uses the Puppeteer library to control instances of Chrome or Firefox in headless and GUI mode.",
   "main": "necrobrowser.js",
-  "scripts": {},
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:api": "jest test/api.test.js",
+    "test:tasks": "jest test/tasks.test.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/muraenateam/necrobrowser.git"
