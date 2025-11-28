@@ -1,5 +1,5 @@
 // puppeteer-cluster override
-const {Cluster} = require('@muraenateam/puppeteer-cluster');
+const {Cluster} = require('puppeteer-cluster');
 
 const fs = require('fs');
 const toml = require('toml');
@@ -94,8 +94,9 @@ exports.InitCluster = async (puppeteer) => {
 
 	switch (configuration.cluster.concurrency) {
 		case "necro":
-			// full user-data-dir segregation in itw own directory, task in its own browser
-			standardOptions["concurrency"] = Cluster.CONCURRENCY_NECRO;
+			// full user-data-dir segregation in its own directory, task in its own browser
+			// Note: CONCURRENCY_BROWSER provides individual browser processes, closest to old CONCURRENCY_NECRO
+			standardOptions["concurrency"] = Cluster.CONCURRENCY_BROWSER;
 			break
 		case "browser":
 			// opens each task on its own browser

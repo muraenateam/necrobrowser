@@ -40,7 +40,7 @@ const c = require('chalk');
     puppeteer.use(StealthPlugin())
 
     // check if Redis is reachable
-    db.CheckRedis()
+    await db.CheckRedis()
 
     // overrides the puppeteer-cluster Cluster object to expose more functionality then init the cluster
     clusterLib.OverrideCluster()
