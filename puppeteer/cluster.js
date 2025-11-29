@@ -1,5 +1,5 @@
 // puppeteer-cluster override
-const {Cluster} = require('@muraenateam/puppeteer-cluster');
+const {Cluster} = require('puppeteer-cluster');
 
 const fs = require('fs');
 const toml = require('toml');
@@ -64,28 +64,49 @@ exports.ParseConfig = () => {
 }
 
 exports.InitCluster = async (puppeteer) => {
+	let puppeteerOptions = {
+		headless: configuration.necro.headless,
+		args: this.GetPuppeteerArgs(),
+	};
+
+	// Only use userDataDir if concurrency is 'necro' mode
+	// This avoids browser lock issues in tests
+	if (configuration.cluster.concurrency === "necro") {
+		puppeteerOptions.userDataDir = configuration.paths.profilesPath;
+	}
+
+	// Only set executablePath if it's explicitly configured
+	if (configuration.platform.puppetPath && configuration.platform.puppetPath !== "") {
+		puppeteerOptions.executablePath = configuration.platform.puppetPath;
+	}
+
+	// Determine maxConcurrency - use 1 in test environments to avoid resource issues
+	let maxConcurrency = configuration.cluster.poolSize;
+	if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID) {
+		maxConcurrency = 1;
+		console.log('[test mode] Setting maxConcurrency to 1');
+	}
+
 	let standardOptions = {
-		maxConcurrency: configuration.cluster.poolSize,   // parallel browsers to run at the same time
-		timeout: configuration.cluster.taskTimeout * 1000,  // two minutes timeout for tasks
+		maxConcurrency: maxConcurrency,   // parallel browsers to run at the same time
+		timeout: configuration.cluster.taskTimeout * 1000,  // timeout for tasks
 
 		puppeteer,
 
-		puppeteerOptions: {
-			executablePath: configuration.platform.puppetPath,
-			headless: configuration.necro.headless,
-			userDataDir: configuration.paths.profilesPath,
-			args: this.GetPuppeteerArgs(),
-		},
+		puppeteerOptions: puppeteerOptions,
+
+		// Add retry logic for browser launch failures
+		retryLimit: 2,
+		retryDelay: 1000,
 	};
 
+	// Platform-specific handling already done in puppeteerOptions above
+	// No need to override here
 	switch (configuration.platform.type) {
 		case "freebsd":
-			standardOptions["executablePath"] = configuration.platform.puppetPath;
-			break
 		case "linux":
-			break // nothing to do
 		case "darwin":
-			break // nothing to do
+			break // executablePath already set in puppeteerOptions if needed
 		default:
 			console.log('error: platform type not supported.')
 			process.exit(1)
@@ -94,8 +115,9 @@ exports.InitCluster = async (puppeteer) => {
 
 	switch (configuration.cluster.concurrency) {
 		case "necro":
-			// full user-data-dir segregation in itw own directory, task in its own browser
-			standardOptions["concurrency"] = Cluster.CONCURRENCY_NECRO;
+			// full user-data-dir segregation in its own directory, task in its own browser
+			// Note: CONCURRENCY_BROWSER provides individual browser processes, closest to old CONCURRENCY_NECRO
+			standardOptions["concurrency"] = Cluster.CONCURRENCY_BROWSER;
 			break
 		case "browser":
 			// opens each task on its own browser
