@@ -100,14 +100,13 @@ exports.InitCluster = async (puppeteer) => {
 		retryDelay: 1000,
 	};
 
+	// Platform-specific handling already done in puppeteerOptions above
+	// No need to override here
 	switch (configuration.platform.type) {
 		case "freebsd":
-			standardOptions["executablePath"] = configuration.platform.puppetPath;
-			break
 		case "linux":
-			break // nothing to do
 		case "darwin":
-			break // nothing to do
+			break // executablePath already set in puppeteerOptions if needed
 		default:
 			console.log('error: platform type not supported.')
 			process.exit(1)

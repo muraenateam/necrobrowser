@@ -45,8 +45,8 @@ describe('Necrobrowser Task Execution', () => {
 
       expect(['queued', 'running']).toContain(data.status);
 
-      // Wait a bit for task to start
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait for task to start - increased timeout to account for queue
+      await new Promise(resolve => setTimeout(resolve, 4000));
 
       response = await fetch(`${baseURL}/instrument/${taskId}`);
       data = await response.json();
@@ -256,6 +256,56 @@ describe('Necrobrowser Task Execution', () => {
       const result = await waitForTaskCompletion(taskId, 5000);
 
       expect(result.status).toBe('completed');
+    });
+  });
+
+  describe('Antisnatchor.com Screenshot Test', () => {
+    test('should screenshot antisnatchor.com and save to /tmp', async () => {
+      const response = await fetch(`${baseURL}/instrument`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'antisnatchor-screenshot',
+          task: {
+            type: 'generic',
+            name: ['ScreenshotPages'],
+            params: {
+              urls: ['https://antisnatchor.com'],
+              outputPath: '/tmp'
+            }
+          },
+          cookie: []
+        })
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+
+      expect(data.status).toBe('queued');
+      expect(data.necroIds).toHaveLength(1);
+
+      const taskId = data.necroIds[0];
+      const shortId = taskId.split(':')[2];
+
+      // Wait for completion
+      const result = await waitForTaskCompletion(taskId, 10000);
+
+      expect(result.status).toBe('completed');
+
+      // Verify screenshot file exists in /tmp
+      const screenshotPath = `/tmp/screenshot_antisnatchor.com_${shortId}.png`;
+      const fs = require('fs');
+
+      expect(fs.existsSync(screenshotPath)).toBe(true);
+
+      // Verify file is not empty
+      const stats = fs.statSync(screenshotPath);
+      expect(stats.size).toBeGreaterThan(0);
+
+      console.log(`Screenshot saved to: ${screenshotPath} (${stats.size} bytes)`);
+
+      // Clean up
+      fs.unlinkSync(screenshotPath);
     });
   });
 });

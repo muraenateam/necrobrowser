@@ -1,0 +1,12 @@
+{
+  "name": "antisnatchor-screenshot",
+  "task": {
+    "type": "generic",
+    "name": ["ScreenshotPages"],
+    "params": {
+      "urls": ["https://antisnatchor.com"],
+      "outputPath": "/tmp"
+    }
+  },
+  "cookie": []
+}

@@ -34,16 +34,16 @@ exports.AddTask = async function (name, task, cookies) {
     const redisClient = await getClient();
     const id = shortid.generate();
 
-    // NOTE: cookies is base64 encoded JSON stringify of all cookies array. makes redis mapping less complicated
-    //console.log(`Adding to redis task ${task}:${id} with cookies`)
-
     const key = `task:${task}:${id}`;
+    console.log(`[DB] AddTask: Creating task ${key} with name="${name}", status="queued", cookies_length=${cookies.length}`);
+
     await redisClient.hSet(key, {
         "name": name,
         "cookies": cookies,
         "status": "queued"
     });
 
+    console.log(`[DB] AddTask: Task ${key} successfully created in Redis`);
     return key;
 }
 
@@ -86,12 +86,16 @@ exports.GetTask = async function (key) {
     const redisClient = await getClient();
     let status = await redisClient.hGet(key, "status");
 
+    console.log(`[DB] GetTask: Retrieving task ${key}, status="${status}"`);
+
     // todo implement as switch
     if (status === "queued") {
+        console.log(`[DB] GetTask: Task ${key} is still queued`);
         return ["queued", null]
     } else if (status === "error") {
         let error = await redisClient.hGet(key, "error");
         let reason = await redisClient.hGet(key, "reason");
+        console.log(`[DB] GetTask: Task ${key} has error, reason="${reason}"`);
         return ["error", reason]
     } else {
         // todo check status === done
@@ -105,9 +109,10 @@ exports.GetTask = async function (key) {
                 result.push(value)
             }
 
+            console.log(`[DB] GetTask: Task ${key} has ${result.length} extruded entries`);
             return [status, result];
         } catch (e) {
-            console.log(`getTask error:${e}`);
+            console.log(`[DB] GetTask error for ${key}:${e}`);
             return ["error", e]
         }
     }
