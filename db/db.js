@@ -1,16 +1,66 @@
 const redis = require("redis");
 const shortid = require("shortid");
+const c = require('chalk');
+const log = require('./../lib/logger');
 
 // Create a singleton Redis client
 let client = null;
+let isConnecting = false;
 
 async function getClient() {
-    if (!client) {
-        client = redis.createClient();
-        client.on("error", function (error) {
-            console.error("Redis error: " + error);
-        });
-        await client.connect();
+    if (!client || !client.isOpen) {
+        // Prevent multiple simultaneous connection attempts
+        if (isConnecting) {
+            // Wait for the connection to complete
+            await new Promise(resolve => setTimeout(resolve, 100));
+            return getClient();
+        }
+
+        isConnecting = true;
+
+        try {
+            client = redis.createClient({
+                socket: {
+                    reconnectStrategy: (retries) => {
+                        if (retries > 10) {
+                            console.error(c.red('[Redis] Max reconnection attempts reached'));
+                            return new Error('Redis max reconnection attempts reached');
+                        }
+                        const delay = Math.min(retries * 100, 3000);
+                        console.log(c.yellow(`[Redis] Reconnecting in ${delay}ms... (attempt ${retries})`));
+                        return delay;
+                    }
+                }
+            });
+
+            // Error handler - prevents crashes on Redis errors
+            client.on("error", function (error) {
+                log.LogError('REDIS ERROR DETECTED', {
+                    'Error': error.message,
+                    'Time': new Date().toISOString()
+                });
+            });
+
+            // Connection events for better visibility
+            client.on("ready", function () {
+                log.LogSuccess('[Redis] Client ready and connected');
+            });
+
+            client.on("reconnecting", function () {
+                log.LogWarning('[Redis] Client reconnecting...');
+            });
+
+            client.on("end", function () {
+                log.LogWarning('[Redis] Connection closed');
+            });
+
+            await client.connect();
+            isConnecting = false;
+        } catch (error) {
+            isConnecting = false;
+            console.error(c.red('[Redis] Failed to connect:'), error.message);
+            throw error;
+        }
     }
     return client;
 }

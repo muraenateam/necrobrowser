@@ -11,6 +11,30 @@ const puppeteer = require('puppeteer-extra')
 const StealthPlugin = require('puppeteer-extra-plugin-stealth')
 const logger = require('morgan');
 const c = require('chalk');
+const log = require('./lib/logger');
+const validation = require('./lib/validation');
+
+// ============================================================================
+// Global Panic Handlers - Prevent crashes from uncaught errors
+// ============================================================================
+
+process.on('uncaughtException', (error) => {
+    log.LogError('UNCAUGHT EXCEPTION - PANIC HANDLER ENGAGED', {
+        'Error': error.message,
+        'Stack': error.stack,
+        'Time': new Date().toISOString()
+    });
+    console.error(c.red('NecroBrowser will attempt to continue operation...\n'));
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    log.LogError('UNHANDLED REJECTION - PANIC HANDLER ENGAGED', {
+        'Reason': reason,
+        'Promise': promise,
+        'Time': new Date().toISOString()
+    });
+    console.error(c.red('NecroBrowser will attempt to continue operation...\n'));
+});
 
 (async () => {
     const clusterLib = require('./puppeteer/cluster')
@@ -46,85 +70,166 @@ const c = require('chalk');
     clusterLib.OverrideCluster()
     const cluster = await clusterLib.InitCluster(puppeteer)
 
+    // ============================================================================
+    // Puppeteer Cluster Error Handlers - Prevent cluster crashes
+    // ============================================================================
+    cluster.on('taskerror', async (err, data, willRetry) => {
+        log.LogError('CLUSTER TASK ERROR DETECTED', {
+            'Task ID': data && data[0] ? data[0] : 'unknown',
+            'Error': err.message,
+            'Will Retry': willRetry,
+            'Time': new Date().toISOString()
+        });
+
+        // Update task status in Redis to reflect error
+        if (data && data[0]) {
+            try {
+                await db.UpdateTaskStatusWithReason(data[0], 'error', err.message || 'Task execution failed');
+            } catch (dbErr) {
+                console.error(c.red(`Failed to update task status in Redis: ${dbErr.message}`));
+            }
+        }
+    });
+
     app.use(logger('dev'));
     app.use(express.json());
 
     // return status for now
-    app.get('/', async function (req, res) {
-        let status = cluster.monitor()
-        res.json(status)
+    app.get('/', async function (req, res, next) {
+        try {
+            let status = cluster.monitor()
+            res.json(status)
+        } catch (err) {
+            next(err)
+        }
     });
 
     // return the available task types and methods
-    app.get('/tasks', async function (req, res) {
-        let output = {}
-        Object.keys(necrotask).map((k,v) => {
-            if(!k.includes("__")){
-                output[k] = necrotask[k]
-            }
-        })
-        res.json(output)
+    app.get('/tasks', async function (req, res, next) {
+        try {
+            let output = {}
+            Object.keys(necrotask).map((k,v) => {
+                if(!k.includes("__")){
+                    output[k] = necrotask[k]
+                }
+            })
+            res.json(output)
+        } catch (err) {
+            next(err)
+        }
     });
 
     // return the data related to the task id
-    app.get('/instrument/:id', async function (req, res) {
-        let id = req.params.id;
-        let taskStatus = await db.GetTask(id);
-        res.json({'status': taskStatus[0], 'data': taskStatus[1]})
+    app.get('/instrument/:id', async function (req, res, next) {
+        try {
+            let id = req.params.id;
+            let taskStatus = await db.GetTask(id);
+            res.json({'status': taskStatus[0], 'data': taskStatus[1]})
+        } catch (err) {
+            next(err)
+        }
     });
 
     // queues a new task and returns immediately the taskID to be used to poll the task via GET
-    app.post('/instrument', async function (req, res) {
-
+    app.post('/instrument', async function (req, res, next) {
         try {
+            // Validate request body structure
+            const bodyValidation = validation.ValidateInstrumentRequest(req.body);
+            if (!bodyValidation.valid) {
+                return res.status(400).json({'error': bodyValidation.error});
+            }
+
             let name = req.body.name;
-            let tasks = req.body.task.name; // array of functions to call
-
+            let tasks = req.body.task.name;
             let necroIds = []
-            for(let task of tasks){
 
+            for(let task of tasks){
                 let taskType = req.body.task.type;
                 let taskName = task;
                 let taskParams = req.body.task.params;
 
-                // validate task
+                // Validate task type/name are alphanumeric
                 let isTaskOk = loader.ValidateTask(taskType, taskName, taskParams, necrotask)
                 if(!isTaskOk){
-                    res.json({'error': 'task type/name need to be alphanumeric and one from GET /tasks'})
-                    return
+                    return res.status(400).json({'error': 'task type/name need to be alphanumeric and one from GET /tasks'})
                 }
 
-                // store in redis
-                let cookies = []
-                if (typeof req.body.cookie !== 'undefined') {
-                    cookies = req.body.cookie;
+                // Verify task function exists
+                const taskValidation = validation.ValidateTaskExists(necrotask, taskType, taskName);
+                if (!taskValidation.valid) {
+                    return res.status(400).json({'error': taskValidation.error});
                 }
 
+                // Get cookies
+                let cookies = req.body.cookie || [];
                 let cookie_string = JSON.stringify(cookies, null, 4);
                 let b64Cookies = await Buffer.from(cookie_string).toString('base64');
 
+                // Store in Redis
                 const taskId = await db.AddTask(name, taskType, b64Cookies);
                 console.log(`[${taskId}] initiating necro -> name: [${name}] type: [${taskType}.${taskName}] cookies: [${cookies}]`);
 
-                // queue the task in the cluster calling the right function
-                // NOTE: taskType and taskName are validated to be alphanumeric, so eval is safe here
-                await cluster.queue([taskId, cookies, taskParams], eval(`necrotask['${taskType}__Tasks'].${taskName}`));
+                // Queue the task
+                const taskFn = eval(`necrotask['${taskType}__Tasks'].${taskName}`);
+                const wrappedTaskFn = loader.WrapTaskWithErrorHandler(taskFn, taskType, taskName, db);
+                await cluster.queue([taskId, cookies, taskParams], wrappedTaskFn);
 
                 necroIds.push(taskId)
             }
 
             res.json({'status': 'queued', 'necroIds': necroIds});
         } catch (err) {
-            // catch error
-            res.json({'error': err});
+            console.error(c.red(`[POST /instrument] Error: ${err.message}`));
+            if (!res.headersSent) {
+                res.status(500).json({'error': err.message || 'Internal server error'});
+            }
+        }
+    });
+
+    // ============================================================================
+    // Express Error Middleware - Catch all errors in routes
+    // ============================================================================
+    app.use((err, req, res, next) => {
+        log.LogError('EXPRESS ERROR MIDDLEWARE TRIGGERED', {
+            'Path': `${req.method} ${req.path}`,
+            'Error': err.message,
+            'Stack': err.stack,
+            'Time': new Date().toISOString()
+        });
+
+        // Send error response if not already sent
+        if (!res.headersSent) {
+            res.status(500).json({
+                error: err.message || 'Internal server error',
+                path: req.path,
+                timestamp: new Date().toISOString()
+            });
         }
     });
 
     let host = cfg.platform.host;
     let port = cfg.platform.port;
 
-    // TODO handle listen errors!
-    app.listen(port, host, function () {
+    // Handle server listen errors
+    const server = app.listen(port, host, function () {
         console.log(`\\+-+/ ... NecroBrowser ready at http://${host}:${port} ... \\+-+/`);
     });
-})();
+
+    server.on('error', (err) => {
+        log.LogError('SERVER LISTEN ERROR DETECTED', {
+            'Error': err.message,
+            'Code': err.code
+        });
+        if (err.code === 'EADDRINUSE') {
+            console.error(c.red(`Port ${port} is already in use. Please choose a different port.`));
+        }
+        process.exit(1);
+    });
+})().catch((err) => {
+    log.LogError('FATAL INITIALIZATION ERROR', {
+        'Error': err.message,
+        'Stack': err.stack
+    });
+    console.error(c.red('NecroBrowser failed to start. Exiting...\n'));
+    process.exit(1);
+});

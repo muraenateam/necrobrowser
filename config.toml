@@ -5,8 +5,9 @@ version = 1.0
 
 debug = false
 
-root = true
 # Mark this as true if Necrobrowser is running as root or in test environments
+# NOTE: you should have a good reason to run it as root, beware of the yolo --no-sandbox --disable-setuid-sandbox
+root = false
 
 [platform]
     # supported platforms: freebsd, linux, darwin
@@ -14,7 +15,7 @@ root = true
 
     # The full path to Chromium or Chrome executable
     # Leave empty to use Puppeteer's bundled Chromium
-    puppetPath = "/home/antisnatchor/.cache/puppeteer/chrome/linux-142.0.7444.175/chrome-linux64/chrome"
+    puppetPath = ""
 
     # NOTE puppetPath is needed only on FreeBSD
     # make sure you have the Chromium binary
