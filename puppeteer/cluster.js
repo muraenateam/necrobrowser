@@ -116,8 +116,8 @@ exports.InitCluster = async (puppeteer) => {
 	switch (configuration.cluster.concurrency) {
 		case "necro":
 			// full user-data-dir segregation in its own directory, task in its own browser
-			// Note: CONCURRENCY_BROWSER provides individual browser processes, closest to old CONCURRENCY_NECRO
-			standardOptions["concurrency"] = Cluster.CONCURRENCY_BROWSER;
+			// Uses CONCURRENCY_NECRO from muraenateam/puppeteer-cluster fork
+			standardOptions["concurrency"] = Cluster.CONCURRENCY_NECRO;
 			break
 		case "browser":
 			// opens each task on its own browser
