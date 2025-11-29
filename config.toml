@@ -38,7 +38,7 @@ root = false
     # but in cases where you prefer opening a single browser
     # and tasks in their own incognito tab, use page
     # necro mode uses persistent user data directories
-    concurrency = "browser"
+    concurrency = "necro"
 
     # how many sessions to process simultaneously
     # for max performances: number or cores / 2
