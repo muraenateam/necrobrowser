@@ -26,18 +26,80 @@ exports.ScreenshotFullPage = async function (page, taskId, url) {
 exports.ScreenshotCurrentPage = async function (page, taskId) {
     let url = await page.url()
     console.log(`[${taskId}] taking screenshot of ${url}`)
-    let screenshotData = await page.screenshot({ fullPage: true, encoding: "base64" });
-    await db.AddExtrudedData(taskId, url, screenshotData)
-}
-exports.ScreenshotCurrentPageToFS = async function (page, taskId) {
-    let url = await page.url()
-    console.log(`[${taskId}] taking screenshot of ${url}`)
-    let filename = url.split("/").pop() //take the last element in the url path
 
-    await page.screenshot({ fullPage: true, path: `${path}/${filename}-${Date.now()}.jpg` }).catch(console.error);
-  
-    let screenshotData = await page.screenshot({ fullPage: true, encoding: "base64" });
-    await db.AddExtrudedData(taskId, url, screenshotData)
+    try {
+        // Wait for page to be fully rendered and check viewport
+        await exports.Sleep(1000)
+
+        // Try to ensure viewport has proper dimensions
+        const viewport = await page.viewport()
+        if (!viewport || viewport.width === 0 || viewport.height === 0) {
+            console.log(`[${taskId}] Invalid viewport detected, setting default viewport`)
+            await page.setViewport({ width: 1920, height: 1080 })
+            await exports.Sleep(500)
+        }
+
+        let screenshotData = await page.screenshot({ fullPage: true, encoding: "base64" });
+        await db.AddExtrudedData(taskId, url, screenshotData)
+    } catch (error) {
+        console.log(`[${taskId}] Screenshot failed for ${url}: ${error.message}`)
+        // Try one more time with viewport clip instead of fullPage
+        try {
+            await exports.Sleep(500)
+            let screenshotData = await page.screenshot({ encoding: "base64" });
+            await db.AddExtrudedData(taskId, url, screenshotData)
+            console.log(`[${taskId}] Screenshot succeeded on retry with clipped view`)
+        } catch (retryError) {
+            console.log(`[${taskId}] Screenshot retry also failed: ${retryError.message}`)
+        }
+    }
+}
+exports.ScreenshotCurrentPageToFS = async function (page, taskId, description = 'screenshot') {
+    let url = await page.url()
+    console.log(`[${taskId}] taking screenshot of ${url} and saving to filesystem`)
+
+    const extrusionPath = clusterLib.GetConfig().platform.extrusionPath
+    const timestamp = Date.now()
+    const sanitizedDesc = description.replace(/[^a-z0-9_-]/gi, '_').toLowerCase()
+    const filename = `screenshot_${taskId}_${sanitizedDesc}_${timestamp}.png`
+    const fullPath = `${extrusionPath}/${filename}`
+
+    try {
+        // Wait for page to be fully rendered and check viewport
+        await exports.Sleep(1000)
+
+        // Try to ensure viewport has proper dimensions
+        const viewport = await page.viewport()
+        if (!viewport || viewport.width === 0 || viewport.height === 0) {
+            console.log(`[${taskId}] Invalid viewport detected, setting default viewport`)
+            await page.setViewport({ width: 1920, height: 1080 })
+            await exports.Sleep(500)
+        }
+
+        // Save to filesystem
+        await page.screenshot({ fullPage: true, path: fullPath })
+        console.log(`[${taskId}] Screenshot saved to: ${fullPath}`)
+
+        // Also save to Redis
+        let screenshotData = await page.screenshot({ fullPage: true, encoding: "base64" })
+        await db.AddExtrudedData(taskId, `fs_${sanitizedDesc}`, screenshotData)
+
+        return fullPath
+    } catch (error) {
+        console.log(`[${taskId}] Screenshot to FS failed for ${url}: ${error.message}`)
+        // Try one more time with viewport clip instead of fullPage
+        try {
+            await exports.Sleep(500)
+            await page.screenshot({ path: fullPath })
+            let screenshotData = await page.screenshot({ encoding: "base64" })
+            await db.AddExtrudedData(taskId, `fs_${sanitizedDesc}`, screenshotData)
+            console.log(`[${taskId}] Screenshot succeeded on retry with clipped view`)
+            return fullPath
+        } catch (retryError) {
+            console.log(`[${taskId}] Screenshot retry also failed: ${retryError.message}`)
+            return null
+        }
+    }
 }
 
 exports.ScreenshotFullPageToFS = async function (page, taskId, url, path) {
@@ -64,7 +126,15 @@ exports.ScreenshotFullPageToFS = async function (page, taskId, url, path) {
 
 exports.SetPageScaleFactor = async function (page, scaleFactor) {
     console.log(`setting page scaleFactor to ${scaleFactor}`)
-    await page._client.send('Emulation.setPageScaleFactor', { pageScaleFactor: scaleFactor }).catch(console.error)
+    try {
+        if (page._client && typeof page._client.send === 'function') {
+            await page._client.send('Emulation.setPageScaleFactor', { pageScaleFactor: scaleFactor })
+        } else {
+            console.log(`page._client not available, skipping scaleFactor setting (this is normal in some browser modes)`)
+        }
+    } catch (error) {
+        console.log(`Failed to set page scaleFactor: ${error.message}`)
+    }
 }
 
 exports.IsAlphanumeric = async function (str) {
@@ -85,6 +155,10 @@ exports.IsAlphanumeric = async function (str) {
 
 exports.Totp = async function (secretKey) {
     return totp(secretKey, { digits: 6 });
+}
+
+exports.Sleep = async function (ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 exports.timedGoto = async function (page, url) {

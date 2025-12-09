@@ -16,14 +16,14 @@ exports.PlantAndDump = async ({ page, data: [taskId, cookies, params] }) => {
 
     // Sleep 5s
     console.log(`[${taskId}] sleeping for 5s`)
-    await page.waitForTimeout(5000);
+    await necrohelp.Sleep(5000);
 
     await page.setCookie(...params.cookies)
     console.log("typeof params.cookies: ", typeof params.cookies);
 
     // Refresh the page to apply the cookies
     await page.reload();
-    await page.waitForTimeout(5000);
+    await necrohelp.Sleep(5000);
 
     
 
@@ -61,7 +61,7 @@ exports.PlantAndDump = async ({ page, data: [taskId, cookies, params] }) => {
         let pName = url.split("/").reverse()[0]
         await page.goto(url);
         console.log(`[${taskId}] taking screenshot of page --> ${pName}`)
-        await page.waitForTimeout(3000)
+        await necrohelp.Sleep(3000)
         await page.screenshot({path: `extrusion/screenshot_${pName}_${taskId}.png`});
     }
 
@@ -70,7 +70,7 @@ exports.PlantAndDump = async ({ page, data: [taskId, cookies, params] }) => {
     for (let repo of repositories){
         console.log(`[${taskId}] downloading repo --> ${repo}`)
         await necrolib.DownloadRepo(page, taskId, repo)
-        await page.waitForTimeout(5000)
+        await necrohelp.Sleep(5000)
     }
 
     // this task is completed, so update the status accordingly

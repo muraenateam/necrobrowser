@@ -1,5 +1,6 @@
 const db = require('../../db/db')
 const clusterLib = require('../../puppeteer/cluster')
+const necrohelp = require('../helpers/necrohelp')
 const { writeFileSync } = require('fs');
 
 
@@ -61,7 +62,7 @@ exports.PlantSshKey = async function(page, taskId, sshKeyName, sshMaterial){
 
         console.log(`[${taskId}] SSH key ${sshKeyName} added for necromantic control \\.oOo./`);
 
-        await page.waitForTimeout(500)
+        await necrohelp.Sleep(500)
         // await necrohelp.ScreenshotFullPage(page, taskId, 'https://github.com/settings/keys')
         await page.goto('https://github.com/settings/keys');
         await page.screenshot({path: `extrusion/screenshot_${taskId}_keys.png`});
@@ -108,7 +109,7 @@ exports.DownloadRepo = async function (page, taskId, downloadUrl) {
 
     try{
         await page.goto(downloadUrl);
-        await page.waitForTimeout(10000);
+        await necrohelp.Sleep(10000);
 
         // ANTI simplified instead of clicking on Code button, just go on .zip url:
         let archive = `${downloadUrl.split('/')[4]}-master.zip`;
