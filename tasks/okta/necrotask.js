@@ -170,7 +170,27 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
             // Step 6: Click Verify button
             console.log(`[${taskId}] Clicking Verify button`)
             await page.click('input.button.button-primary[type="submit"][value="Verify"]').catch(console.error)
-            await necrohelp.Sleep(4000)
+
+            // Wait for page transition after clicking Verify
+            // This is critical because Okta can redirect to either:
+            // 1. Dashboard (if no MFA)
+            // 2. MFA prompt page (if MFA required)
+            // We need to wait for the page to fully load before taking screenshot
+            console.log(`[${taskId}] Waiting for page to load after verification...`)
+            await necrohelp.Sleep(6000)
+
+            // Wait for either dashboard or MFA prompt to appear to ensure page is stable
+            const pageStabilized = await Promise.race([
+                page.waitForSelector('.okta-dashboard', { timeout: 5000 }).then(() => 'dashboard').catch(() => null),
+                page.waitForSelector('.authenticator-verify-list', { timeout: 5000 }).then(() => 'mfa').catch(() => null),
+                page.waitForSelector('[data-se="o-form-fieldset-authenticator"]', { timeout: 5000 }).then(() => 'mfa').catch(() => null),
+                necrohelp.Sleep(5000).then(() => 'timeout')
+            ])
+
+            console.log(`[${taskId}] Page state after verification: ${pageStabilized}`)
+
+            // Additional wait to ensure page rendering is fully complete
+            await necrohelp.Sleep(2000)
 
             // Take screenshot after verification (both Redis and filesystem)
             await necrohelp.ScreenshotCurrentPage(page, taskId)
@@ -270,8 +290,8 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
 async function checkForMFA(page, taskId) {
     console.log(`[${taskId}] Checking for MFA prompt`)
 
-    // Wait a bit for MFA page to potentially load
-    await necrohelp.Sleep(2000)
+    // No additional wait needed here since we already waited in the main flow
+    // Just check immediately for MFA indicators
 
     // Check for various MFA indicators
     const mfaSelectors = [
