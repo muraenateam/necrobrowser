@@ -24,6 +24,8 @@ exports.ScreenshotPages = async ({ page, data: [taskId, cookies, params] }) => {
             await page.setCookie(...cookies);
         }
 
+        await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
+
         // screenshot urls of interest
         for(let url of params.urls){
             try {

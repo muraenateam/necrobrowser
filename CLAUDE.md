@@ -95,6 +95,9 @@ For Office365 tasks, both `.office365.com` AND `.login.microsoftonline.com` cook
 ### iFrame DOM Access
 Office365 apps use iFrames heavily. The `--disable-features=site-per-process` Chrome flag is critical (cluster.js:127, 134). Access iFrame content via `page.$('#WebApplicationFrame')` then `contentFrame()` (office365/necrotask.js:193-194).
 
+### UserAgent Spoofing
+The `ConfigureUserAgent()` helper in `tasks/helpers/necrohelp.js` configures browser fingerprint matching using the victim's original User-Agent. It parses the UA with `ua-parser-js` to set `navigator.platform`, mobile viewport, and uses CDP `Emulation.setUserAgentOverride` for full JavaScript-level consistency. Called in all task files after `setCookie()` and before the first `page.goto()`. The `userAgent` field is passed from Muraena via the `%%%USERAGENT%%%` template placeholder in the instrument profile.
+
 ### Error Handling
 Tasks should use `.catch(console.error)` for non-critical operations and update status with `db.UpdateTaskStatusWithReason(taskId, "error", reason)` on fatal errors.
 

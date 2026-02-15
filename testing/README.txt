@@ -23,4 +23,9 @@ Key cookies needed: sid, DT, idx, JSESSIONID, t
 ## Bulk credential testing:
 For testing multiple credentials, use the bulk testing script:
 cd tasks/okta && ./okta-bulk-test.sh users.csv mycompany.okta.com
+
+# With 5 concurrent tasks for faster processing:
+cd tasks/okta && ./okta-bulk-test.sh users.csv mycompany.okta.com http://localhost:3000 5
+
+Features: parallel execution, real-time CSV updates, file locking
 See tasks/okta/README.md for full documentation

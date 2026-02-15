@@ -132,6 +132,14 @@ exports.UpdateTaskStatusWithReason = async function (key, status, reason) {
     console.log(`[${key}] reason (${currentReason}) changed to -> ${reason}`)
 }
 
+// Store task results as plain JSON (for tasks that need clean JSON responses)
+exports.SetTaskResults = async function (key, results) {
+    const redisClient = await getClient();
+    const resultsJson = JSON.stringify(results);
+    await redisClient.hSet(key, 'results', resultsJson);
+    console.log(`[${key}] results set (${results.length} items)`);
+}
+
 exports.GetTask = async function (key) {
     const redisClient = await getClient();
     let status = await redisClient.hGet(key, "status");
@@ -148,7 +156,19 @@ exports.GetTask = async function (key) {
         console.log(`[DB] GetTask: Task ${key} has error, reason="${reason}"`);
         return ["error", reason]
     } else {
-        // todo check status === done
+        // Check for direct results field first (used by tasks like emailverify)
+        let results = await redisClient.hGet(key, "results");
+        if (results) {
+            try {
+                let parsedResults = JSON.parse(results);
+                console.log(`[DB] GetTask: Task ${key} has direct results (${parsedResults.length} items)`);
+                return [status, parsedResults];
+            } catch (e) {
+                console.log(`[DB] GetTask: Failed to parse results for ${key}: ${e}`);
+            }
+        }
+
+        // Fall back to extruded data format
         let dataKey = `${key}:extruded`;
 
         try {

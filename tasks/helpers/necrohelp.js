@@ -161,6 +161,95 @@ exports.Sleep = async function (ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+exports.ConfigureUserAgent = async function (page, userAgent, taskId) {
+    if (!userAgent || userAgent.trim() === '' || userAgent === '%%%USERAGENT%%%') {
+        return;
+    }
+
+    const UAParser = require('ua-parser-js');
+    const parser = new UAParser(userAgent);
+    const os = parser.getOS();
+    const device = parser.getDevice();
+    const browser = parser.getBrowser();
+
+    console.log(`[${taskId}] Spoofing UA: ${browser.name}/${browser.version} on ${os.name}/${os.version}`);
+
+    // Set UA string
+    await page.setUserAgent(userAgent);
+
+    // Determine navigator.platform
+    let platform = 'Win32';
+    if (os.name) {
+        const osLower = os.name.toLowerCase();
+        if (osLower.includes('mac')) platform = 'MacIntel';
+        else if (osLower.includes('linux') && !osLower.includes('android')) platform = 'Linux x86_64';
+        else if (osLower.includes('android')) platform = 'Linux armv8l';
+        else if (osLower.includes('ios') || osLower.includes('iphone')) platform = 'iPhone';
+    }
+
+    const isMobile = device.type === 'mobile' || device.type === 'tablet';
+
+    // Set mobile viewport if needed
+    if (isMobile) {
+        await page.setViewport({ width: 412, height: 915, isMobile: true, hasTouch: true });
+    }
+
+    // Determine architecture from OS/platform
+    let architecture = 'x86';
+    if (os.name) {
+        const osLower = os.name.toLowerCase();
+        if (osLower.includes('android') || osLower.includes('ios') || osLower.includes('iphone')) {
+            architecture = '';
+        } else if (platform === 'Linux x86_64' || platform === 'MacIntel' || platform === 'Win32') {
+            architecture = 'x86';
+        }
+    }
+
+    // Determine model (empty for desktop, device model for mobile)
+    let model = '';
+    if (device.model) {
+        model = device.model;
+    }
+
+    // Determine platform version
+    let platformVersion = os.version || '0.0.0';
+
+    // Build fullVersion from browser version
+    let fullVersion = browser.version || '';
+
+    // Build brands list from browser info
+    let brands = [];
+    if (browser.name) {
+        const majorVersion = browser.version ? browser.version.split('.')[0] : '0';
+        brands.push({ brand: browser.name, version: majorVersion });
+        brands.push({ brand: 'Not_A Brand', version: '8' });
+        if (browser.name.toLowerCase().includes('chrome') || browser.name.toLowerCase().includes('chromium')) {
+            brands.push({ brand: 'Chromium', version: majorVersion });
+        }
+    }
+
+    // Use CDP for full fingerprint override (platform, mobile flag, architecture, model)
+    try {
+        const client = await page.target().createCDPSession();
+        await client.send('Emulation.setUserAgentOverride', {
+            userAgent: userAgent,
+            platform: platform,
+            userAgentMetadata: {
+                brands: brands,
+                fullVersionList: brands.map(b => ({ brand: b.brand, version: fullVersion || b.version })),
+                platform: platform,
+                platformVersion: platformVersion,
+                architecture: architecture,
+                model: model,
+                mobile: isMobile,
+                fullVersion: fullVersion
+            }
+        });
+    } catch (e) {
+        console.log(`[${taskId}] CDP setUserAgentOverride failed (UA string still set): ${e.message}`);
+    }
+}
+
 exports.timedGoto = async function (page, url) {
  // TODO
 }

@@ -52,6 +52,7 @@ exports.GetProfileInfo = async ({ page, data: [taskId, cookies, params] }) => {
     let nc = necrolib.PropagateCookies(cookies);
     !!!nc ? console.log("Cookies Not Propagate") :
         await page.setCookie(...cookies);
+    await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
     await page.goto(params.urls[0]);
     await necrohelp.Sleep(5000);
     await page.screenshot({ fullPage: true, path: "/home/natalinux/Documents/necrobrowser/tasks/atlassian/debugging-outputs/Init_Page.jpg" }).catch(console.error);
@@ -111,6 +112,7 @@ exports.AddAuthenticatorApp = async ({ page, data: [taskId, cookies, params] }) 
     let nc = necrolib.PropagateCookies(cookies);
     !!!nc ? console.log("Cookies Not Propagate") :
         await page.setCookie(...cookies);
+    await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
     await page.goto(params.urls[0]);
     await necrohelp.Sleep(5000);
     // type the password in the input field

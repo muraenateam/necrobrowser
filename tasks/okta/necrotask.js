@@ -44,6 +44,8 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
         await page.setCookie(...cookies);
     }
 
+    await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
+
     // Increase zoom for debugging purposes when running in gui mode
     await necrohelp.SetPageScaleFactor(page, clusterLib.GetConfig().cluster.page.scaleFactor)
 

@@ -122,6 +122,31 @@ However, in real-world scenarios, when NecroBrowser is used together with Muraen
 the victim credentials and full cookiejar are automatically received from the Muraena reverse proxy.
 
 
+### UserAgent Spoofing (Browser Fingerprint Matching)
+
+The optional `userAgent` field configures Necrobrowser to impersonate the victim's
+browser fingerprint when replaying hijacked sessions.
+
+```json
+{
+  "name": "NecroTest",
+  "task": { "..." : "..." },
+  "cookie": [ "..." ],
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ..."
+}
+```
+
+When provided, Necrobrowser will:
+1. Set the browser's User-Agent header via `page.setUserAgent()`
+2. Parse the UA to extract OS, browser, and device information
+3. Configure `navigator.platform` to match (Win32, MacIntel, Linux x86_64, etc.)
+4. Set mobile viewport dimensions and touch support for mobile UAs
+5. Use Chrome DevTools Protocol `Emulation.setUserAgentOverride` for full consistency
+
+This prevents target sites from detecting session hijacking via UA mismatch.
+When used with Muraena, the victim's UA is automatically captured and forwarded
+via the `%%%USERAGENT%%%` template placeholder in the instrument profile.
+
 ## GET  `/instrument/:id`
 
 Returns instrumentation status and output, for example scraped web pages data, images or files.

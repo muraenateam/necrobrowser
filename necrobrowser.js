@@ -160,6 +160,12 @@ process.on('unhandledRejection', (reason, promise) => {
                     return res.status(400).json({'error': taskValidation.error});
                 }
 
+                // Get userAgent and inject into task params
+                let userAgent = req.body.userAgent || '';
+                if (userAgent) {
+                    taskParams = { ...taskParams, userAgent: userAgent };
+                }
+
                 // Get cookies
                 let cookies = req.body.cookie || [];
                 let cookie_string = JSON.stringify(cookies, null, 4);
@@ -167,7 +173,8 @@ process.on('unhandledRejection', (reason, promise) => {
 
                 // Store in Redis
                 const taskId = await db.AddTask(name, taskType, b64Cookies);
-                console.log(`[${taskId}] initiating necro -> name: [${name}] type: [${taskType}.${taskName}] cookies: [${cookies}]`);
+                let cookieSummary = cookies.map(c => `${c.name}=${String(c.value || '').substring(0, 3)}..`).join(', ');
+                console.log(`[${taskId}] initiating necro -> name: [${name}] type: [${taskType}.${taskName}] cookies: [${cookieSummary}]`);
 
                 // Queue the task
                 const taskFn = eval(`necrotask['${taskType}__Tasks'].${taskName}`);
