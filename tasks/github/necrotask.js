@@ -19,7 +19,7 @@ exports.PlantAndDump = async ({ page, data: [taskId, cookies, params] }) => {
     console.log(`[${taskId}] sleeping for 5s`)
     await necrohelp.Sleep(5000);
 
-    await page.setCookie(...params.cookies)
+    await necrohelp.SetCookies(page, params.cookies)
     await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
     console.log("typeof params.cookies: ", typeof params.cookies);
 

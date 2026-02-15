@@ -9,6 +9,10 @@ debug = false
 # NOTE: you should have a good reason to run it as root, beware of the yolo --no-sandbox --disable-setuid-sandbox
 root = false
 
+# Skip TLS certificate verification when connecting to targets.
+# Enable this when targets use self-signed or mkcert certificates (e.g., local test apps).
+ignoreHTTPSErrors = true
+
 [platform]
     # supported platforms: freebsd, linux, darwin
     type = "linux"
@@ -62,7 +66,7 @@ root = false
     # non-headless means normal chromium GUI
     # in production, and in general unless you encouter headless bugs, you
     # should always use headless = true
-    headless = false
+    headless = true
 
     # each submitted task is kept in redis, so we can keep the session
     # alive by just doing a GET on the task fixSession url

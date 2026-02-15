@@ -41,7 +41,7 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
     // Set cookies BEFORE navigating (like office365 tasks)
     if (cookies && cookies.length > 0) {
         console.log(`[${taskId}] Setting ${cookies.length} Okta cookies before navigation`)
-        await page.setCookie(...cookies);
+        await necrohelp.SetCookies(page, cookies);
     }
 
     await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);

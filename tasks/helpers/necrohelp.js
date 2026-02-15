@@ -153,6 +153,42 @@ exports.IsAlphanumeric = async function (str) {
     return isAlphanumeric
 }
 
+// SetCookies sets cookies on a Puppeteer page with Puppeteer/CDP compatibility fixes.
+// Handles:
+//  - Renaming 'expirationDate' to 'expires' (legacy Muraena field name)
+//  - Removing non-CDP fields ('session')
+//  - Adding 'url' context for secure cookie setting from about:blank
+//  - Optional domain override (overrideDomain) to replace cookie domains with a target hostname,
+//    working around Puppeteer silently rejecting cookies whose domain doesn't match the url host.
+exports.SetCookies = async function (page, cookies, options = {}) {
+    if (!cookies || cookies.length === 0) return;
+
+    const overrideDomain = options.overrideDomain || null;
+    const url = options.url || null;
+
+    const transformed = cookies.map(c => {
+        const tc = {...c};
+        // Puppeteer/CDP uses 'expires' not 'expirationDate' (legacy field name)
+        if (tc.expirationDate !== undefined && tc.expires === undefined) {
+            tc.expires = tc.expirationDate;
+            delete tc.expirationDate;
+        }
+        // Remove non-CDP fields
+        delete tc.session;
+        // Override domain if requested
+        if (overrideDomain) {
+            tc.domain = overrideDomain;
+        }
+        // Add url for proper secure cookie context
+        if (url) {
+            tc.url = url;
+        }
+        return tc;
+    });
+
+    await page.setCookie(...transformed);
+}
+
 exports.Totp = async function (secretKey) {
     return totp(secretKey, { digits: 6 });
 }

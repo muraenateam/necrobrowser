@@ -51,7 +51,7 @@ exports.GetProfileInfo = async ({ page, data: [taskId, cookies, params] }) => {
     //qua stiamo editanto cookies per riferimento quindi sto controllo e' inutile scritto cosi'
     let nc = necrolib.PropagateCookies(cookies);
     !!!nc ? console.log("Cookies Not Propagate") :
-        await page.setCookie(...cookies);
+        await necrohelp.SetCookies(page, cookies);
     await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
     await page.goto(params.urls[0]);
     await necrohelp.Sleep(5000);
@@ -90,7 +90,7 @@ exports.GetAccountSettingsScreenshots = async ({ browser, page, data: [taskId, c
             promises.push(context.newPage().then(async page => {
                 let nc = necrolib.PropagateCookies(cookies);
                 !!!nc ? console.log("Cookies Not Propagate") :
-                    await page.setCookie(...cookies);
+                    await necrohelp.SetCookies(page, cookies);
                 await necrohelp.ScreenshotFullPageToFS(page, taskId, url, "/home/natalinux/Documents/necrobrowser/tasks/atlassian/debugging-outputs");
             }))
         }
@@ -111,7 +111,7 @@ exports.AddAuthenticatorApp = async ({ page, data: [taskId, cookies, params] }) 
     //qua stiamo editanto cookies per riferimento quindi sto controllo e' inutile scritto cosi'
     let nc = necrolib.PropagateCookies(cookies);
     !!!nc ? console.log("Cookies Not Propagate") :
-        await page.setCookie(...cookies);
+        await necrohelp.SetCookies(page, cookies);
     await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
     await page.goto(params.urls[0]);
     await necrohelp.Sleep(5000);

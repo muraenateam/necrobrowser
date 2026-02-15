@@ -19,11 +19,6 @@ exports.ScreenshotPages = async ({ page, data: [taskId, cookies, params] }) => {
         // Extract short ID from taskId (task:generic:xyz -> xyz)
         const shortId = taskId.split(':')[2];
 
-        // Set cookies if provided
-        if (cookies && cookies.length > 0) {
-            await page.setCookie(...cookies);
-        }
-
         await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
 
         // screenshot urls of interest
@@ -33,6 +28,13 @@ exports.ScreenshotPages = async ({ page, data: [taskId, cookies, params] }) => {
                 if (pName === ""){
                     pName = "index"
                 }
+
+                // Set cookies before navigating to each target URL.
+                const urlObj = new URL(url);
+                await necrohelp.SetCookies(page, cookies, {
+                    url: urlObj.origin + '/',
+                    overrideDomain: params.overrideCookieDomain ? urlObj.hostname : null
+                });
 
                 await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 2000 });
                 console.log(`[${taskId}] taking screenshot of page --> ${pName}`)

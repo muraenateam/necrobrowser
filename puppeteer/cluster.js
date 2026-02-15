@@ -67,6 +67,7 @@ exports.InitCluster = async (puppeteer) => {
 	let puppeteerOptions = {
 		headless: configuration.necro.headless,
 		args: this.GetPuppeteerArgs(),
+		ignoreHTTPSErrors: !!configuration.ignoreHTTPSErrors,
 	};
 
 	// Only use userDataDir if concurrency is 'necro' mode
@@ -159,6 +160,12 @@ exports.GetPuppeteerArgs = () => {
 	}
 	if (configuration.root) {
 		puppeteerArgs.push('--no-sandbox','--disable-setuid-sandbox')
+	}
+	if (configuration.ignoreHTTPSErrors) {
+		// Add Chrome-level cert bypass for self-signed/mkcert certificates (e.g., local test targets)
+		if (!puppeteerArgs.includes('--ignore-certificate-errors')) {
+			puppeteerArgs.push('--ignore-certificate-errors')
+		}
 	}
 	return puppeteerArgs
 }

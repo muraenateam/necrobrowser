@@ -7,7 +7,7 @@ exports.ScreenshotApps = async ({page, data: [taskId, cookies, params]}) => {
     // update initial task status from queued to running
     await db.UpdateTaskStatus(taskId, "running")
 
-    await page.setCookie(...cookies);
+    await necrohelp.SetCookies(page, cookies, {url: 'https://mail.google.com/'});
     await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
 
     await page.goto('https://mail.google.com/mail/u/0/#inbox');
