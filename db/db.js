@@ -80,18 +80,30 @@ exports.CheckRedis = async function () {
 // task:github:PPBqWA9
 // related cookies are another HMSET like:
 // task:<type>:<short-id>
-exports.AddTask = async function (name, task, cookies) {
+exports.AddTask = async function (name, task, cookies, taskName, params, userAgent) {
     const redisClient = await getClient();
     const id = shortid.generate();
 
     const key = `task:${task}:${id}`;
     console.log(`[DB] AddTask: Creating task ${key} with name="${name}", status="queued", cookies_length=${cookies.length}`);
 
-    await redisClient.hSet(key, {
+    const fields = {
         "name": name,
         "cookies": cookies,
-        "status": "queued"
-    });
+        "status": "queued",
+        "type": task,
+        "taskName": taskName || '',
+        "params": JSON.stringify(params || {}),
+        "userAgent": userAgent || '',
+        "createdAt": new Date().toISOString()
+    };
+
+    // Auto-enable keepalive if params has fixSession
+    if (params && params.fixSession) {
+        fields["keepalive"] = "enabled";
+    }
+
+    await redisClient.hSet(key, fields);
 
     console.log(`[DB] AddTask: Task ${key} successfully created in Redis`);
     return key;
@@ -207,4 +219,67 @@ exports.GetCredentials = async function (key) {
         console.log(`getcredentials error:`);
         return ["error", "getcredentials"];
     }
+}
+
+exports.GetFullTask = async function (key) {
+    const redisClient = await getClient();
+    const data = await redisClient.hGetAll(key);
+    if (!data || Object.keys(data).length === 0) {
+        return null;
+    }
+    return data;
+}
+
+exports.GetAllTasks = async function () {
+    const redisClient = await getClient();
+    const keys = await redisClient.keys('task:*');
+
+    // Filter to only top-level task keys (not :extruded or :creds sub-keys)
+    const taskKeys = keys.filter(k => {
+        const parts = k.split(':');
+        return parts.length === 3 && parts[0] === 'task';
+    });
+
+    const tasks = [];
+    for (const key of taskKeys) {
+        const data = await redisClient.hGetAll(key);
+        if (data && data.status) {
+            data._key = key;
+            tasks.push(data);
+        }
+    }
+    return tasks;
+}
+
+exports.UpdateTaskCookies = async function (key, b64Cookies) {
+    const redisClient = await getClient();
+    await redisClient.hSet(key, 'cookies', b64Cookies);
+    console.log(`[${key}] cookies updated (${b64Cookies.length} bytes b64)`);
+}
+
+exports.UpdateTaskKeepalive = async function (key, enabled) {
+    const redisClient = await getClient();
+    await redisClient.hSet(key, 'keepalive', enabled ? 'enabled' : 'disabled');
+    console.log(`[${key}] keepalive set to ${enabled ? 'enabled' : 'disabled'}`);
+}
+
+exports.UpdateTaskLastKeepalive = async function (key) {
+    const redisClient = await getClient();
+    const ts = new Date().toISOString();
+    await redisClient.hSet(key, 'lastKeepalive', ts);
+    console.log(`[${key}] lastKeepalive updated to ${ts}`);
+}
+
+exports.GetKeepAliveTasks = async function () {
+    const allTasks = await exports.GetAllTasks();
+    return allTasks.filter(t => {
+        if (t.keepalive !== 'enabled') return false;
+        if (t.status !== 'completed' && t.status !== 'running') return false;
+        try {
+            const params = JSON.parse(t.params || '{}');
+            return !!params.fixSession;
+        } catch (e) {
+            return false;
+        }
+    });
 }
