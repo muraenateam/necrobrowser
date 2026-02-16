@@ -8,7 +8,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:api": "jest test/api.test.js",
-    "test:tasks": "jest test/tasks.test.js"
+    "test:tasks": "jest test/tasks.test.js",
+    "cli": "node necrocli.js"
   },
   "repository": {
     "type": "git",
@@ -22,6 +23,7 @@
   "homepage": "https://necrobrowser.phishing.click",
   "dependencies": {
     "chalk": "^4.1.2",
+    "commander": "^14.0.3",
     "crypto": "^1.0.1",
     "express": "^4.21.2",
     "jest": "^29.7.0",
@@ -37,12 +39,12 @@
     "ua-parser-js": "^1.0.37"
   },
   "devDependencies": {
-    "puppeteer-cluster": "github:muraenateam/puppeteer-cluster#v1.0.0",
     "chalk": "^4.1.2",
     "express": "^4.21.2",
     "jest": "^29.7.0",
     "morgan": "^1.10.1",
     "node-eval": "^2.0.0",
+    "puppeteer-cluster": "github:muraenateam/puppeteer-cluster#v1.0.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "redis": "^4.7.1",
