@@ -172,7 +172,7 @@ process.on('unhandledRejection', (reason, promise) => {
                 let b64Cookies = await Buffer.from(cookie_string).toString('base64');
 
                 // Store in Redis
-                const taskId = await db.AddTask(name, taskType, b64Cookies);
+                const taskId = await db.AddTask(name, taskType, b64Cookies, taskName, taskParams, userAgent);
                 let cookieSummary = cookies.map(c => `${c.name}=${String(c.value || '').substring(0, 3)}..`).join(', ');
                 console.log(`[${taskId}] initiating necro -> name: [${name}] type: [${taskType}.${taskName}] cookies: [${cookieSummary}]`);
 
@@ -190,6 +190,147 @@ process.on('unhandledRejection', (reason, promise) => {
             if (!res.headersSent) {
                 res.status(500).json({'error': err.message || 'Internal server error'});
             }
+        }
+    });
+
+    // retrigger an existing task by ID, creating a new task with the same cookies/params
+    app.post('/instrument/:id/retrigger', async function (req, res, next) {
+        try {
+            let id = req.params.id;
+            let taskData = await db.GetFullTask(id);
+
+            if (!taskData) {
+                return res.status(404).json({'error': `Task ${id} not found`});
+            }
+
+            if (!taskData.type || !taskData.taskName || !taskData.cookies) {
+                return res.status(400).json({
+                    'error': 'Task missing retrigger data (type, taskName, or cookies). Only tasks created after this feature was added can be retriggered.'
+                });
+            }
+
+            let taskType = taskData.type;
+            let taskName = taskData.taskName;
+            let params = {};
+            try {
+                params = JSON.parse(taskData.params || '{}');
+            } catch (e) {
+                return res.status(400).json({'error': 'Failed to parse stored task params'});
+            }
+            let userAgent = taskData.userAgent || '';
+
+            const taskValidation = validation.ValidateTaskExists(necrotask, taskType, taskName);
+            if (!taskValidation.valid) {
+                return res.status(400).json({'error': taskValidation.error});
+            }
+
+            let cookies = [];
+            try {
+                let cookieJson = Buffer.from(taskData.cookies, 'base64').toString('utf8');
+                cookies = JSON.parse(cookieJson);
+            } catch (e) {
+                return res.status(400).json({'error': 'Failed to decode stored cookies'});
+            }
+
+            let b64Cookies = Buffer.from(JSON.stringify(cookies, null, 4)).toString('base64');
+
+            const newTaskId = await db.AddTask(
+                taskData.name || 'retrigger',
+                taskType,
+                b64Cookies,
+                taskName,
+                params,
+                userAgent
+            );
+            console.log(`[${newTaskId}] retriggered from [${id}] -> type: [${taskType}.${taskName}]`);
+
+            const taskFn = eval(`necrotask['${taskType}__Tasks'].${taskName}`);
+            const wrappedTaskFn = loader.WrapTaskWithErrorHandler(taskFn, taskType, taskName, db);
+            await cluster.queue([newTaskId, cookies, params], wrappedTaskFn);
+
+            res.json({
+                'status': 'queued',
+                'necroId': newTaskId,
+                'retriggeredFrom': id
+            });
+        } catch (err) {
+            console.error(c.red(`[POST /instrument/:id/retrigger] Error: ${err.message}`));
+            if (!res.headersSent) {
+                res.status(500).json({'error': err.message || 'Internal server error'});
+            }
+        }
+    });
+
+    // list all sessions with cookie counts, domains, status, and keepalive info
+    app.get('/sessions', async function (req, res, next) {
+        try {
+            let allTasks = await db.GetAllTasks();
+            let sessions = allTasks.map(t => {
+                let cookieCount = 0;
+                let domains = [];
+                try {
+                    let cookieJson = Buffer.from(t.cookies || '', 'base64').toString('utf8');
+                    let cookies = JSON.parse(cookieJson);
+                    cookieCount = cookies.length;
+                    domains = [...new Set(cookies.map(c => c.domain).filter(Boolean))];
+                } catch (e) {
+                    // cookies not decodable
+                }
+
+                let params = {};
+                try {
+                    params = JSON.parse(t.params || '{}');
+                } catch (e) {}
+
+                return {
+                    id: t._key,
+                    name: t.name || '',
+                    type: t.type || '',
+                    taskName: t.taskName || '',
+                    status: t.status || '',
+                    cookieCount: cookieCount,
+                    domains: domains,
+                    fixSession: params.fixSession || '',
+                    userAgent: (t.userAgent || '').substring(0, 80),
+                    keepalive: t.keepalive || 'disabled',
+                    lastKeepalive: t.lastKeepalive || '',
+                    createdAt: t.createdAt || ''
+                };
+            });
+
+            res.json({sessions: sessions, total: sessions.length});
+        } catch (err) {
+            next(err);
+        }
+    });
+
+    // enable keepalive for a task
+    app.post('/instrument/:id/keepalive/enable', async function (req, res, next) {
+        try {
+            let id = req.params.id;
+            let taskData = await db.GetFullTask(id);
+            if (!taskData) {
+                return res.status(404).json({'error': `Task ${id} not found`});
+            }
+            await db.UpdateTaskKeepalive(id, true);
+            res.json({'status': 'ok', 'taskId': id, 'keepalive': 'enabled'});
+        } catch (err) {
+            next(err);
+        }
+    });
+
+    // disable keepalive for a task
+    app.post('/instrument/:id/keepalive/disable', async function (req, res, next) {
+        try {
+            let id = req.params.id;
+            let taskData = await db.GetFullTask(id);
+            if (!taskData) {
+                return res.status(404).json({'error': `Task ${id} not found`});
+            }
+            await db.UpdateTaskKeepalive(id, false);
+            res.json({'status': 'ok', 'taskId': id, 'keepalive': 'disabled'});
+        } catch (err) {
+            next(err);
         }
     });
 
@@ -213,6 +354,61 @@ process.on('unhandledRejection', (reason, promise) => {
             });
         }
     });
+
+    // ============================================================================
+    // Keepalive - periodically refresh sessions to keep them alive
+    // ============================================================================
+    if (cfg.necro.keepalive && cfg.necro.keepalive.enabled) {
+        const keepaliveDelay = (cfg.necro.keepalive.delay || 300) * 1000;
+        console.log(c.green(`[keepalive] enabled, interval: ${cfg.necro.keepalive.delay}s`));
+
+        const keepaliveTask = require('./tasks/keepalive/necrotask');
+        const keepaliveTaskFn = keepaliveTask.KeepAlive;
+
+        setInterval(async () => {
+            try {
+                const tasks = await db.GetKeepAliveTasks();
+                if (tasks.length === 0) return;
+
+                console.log(c.cyan(`[keepalive] processing ${tasks.length} task(s)`));
+
+                for (const task of tasks) {
+                    try {
+                        let cookies = [];
+                        try {
+                            let cookieJson = Buffer.from(task.cookies || '', 'base64').toString('utf8');
+                            cookies = JSON.parse(cookieJson);
+                        } catch (e) {
+                            console.error(`[keepalive] failed to decode cookies for ${task._key}: ${e.message}`);
+                            continue;
+                        }
+
+                        let params = {};
+                        try {
+                            params = JSON.parse(task.params || '{}');
+                        } catch (e) {
+                            continue;
+                        }
+
+                        if (task.userAgent) {
+                            params.userAgent = task.userAgent;
+                        }
+
+                        await cluster.queue(
+                            [task._key, cookies, params],
+                            keepaliveTaskFn
+                        );
+
+                        console.log(`[keepalive] queued for ${task._key}`);
+                    } catch (taskErr) {
+                        console.error(c.red(`[keepalive] error queueing ${task._key}: ${taskErr.message}`));
+                    }
+                }
+            } catch (err) {
+                console.error(c.red(`[keepalive] interval error: ${err.message}`));
+            }
+        }, keepaliveDelay);
+    }
 
     let host = cfg.platform.host;
     let port = cfg.platform.port;
