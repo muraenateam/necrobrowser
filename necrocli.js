@@ -155,6 +155,27 @@ program
         console.log('');
     });
 
+// cookies command
+program
+    .command('cookies <taskId>')
+    .description('Export cookies for a session in Cookie Editor JSON format')
+    .option('-o, --output <file>', 'Save cookies to a JSON file instead of stdout')
+    .action(async (taskId, opts) => {
+        const data = await apiCall('GET', `/instrument/${taskId}/cookies`, getApiBase());
+
+        // Cookie Editor expects a plain JSON array
+        const cookieArray = data.cookies || [];
+
+        if (opts.output) {
+            const fs = require('fs');
+            fs.writeFileSync(opts.output, JSON.stringify(cookieArray, null, 2));
+            console.log(c.green(`\n  Exported ${data.count} cookies to ${opts.output}\n`));
+        } else {
+            // Output raw JSON to stdout for piping
+            console.log(JSON.stringify(cookieArray, null, 2));
+        }
+    });
+
 // keepalive command group
 const keepalive = program
     .command('keepalive')

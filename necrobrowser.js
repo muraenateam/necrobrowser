@@ -319,6 +319,59 @@ process.on('unhandledRejection', (reason, promise) => {
         }
     });
 
+    // export cookies for a task in Cookie Editor JSON format
+    app.get('/instrument/:id/cookies', async function (req, res, next) {
+        try {
+            let id = req.params.id;
+            let taskData = await db.GetFullTask(id);
+            if (!taskData) {
+                return res.status(404).json({'error': `Task ${id} not found`});
+            }
+            if (!taskData.cookies) {
+                return res.status(400).json({'error': 'Task has no cookies stored'});
+            }
+
+            let cookies = [];
+            try {
+                let cookieJson = Buffer.from(taskData.cookies, 'base64').toString('utf8');
+                cookies = JSON.parse(cookieJson);
+            } catch (e) {
+                return res.status(400).json({'error': 'Failed to decode stored cookies'});
+            }
+
+            // Transform to Cookie Editor extension format
+            const cookieEditorFormat = cookies.map(c => {
+                const entry = {
+                    name: c.name || '',
+                    value: c.value || '',
+                    domain: c.domain || '',
+                    path: c.path || '/',
+                    secure: !!c.secure,
+                    httpOnly: !!c.httpOnly,
+                    sameSite: c.sameSite || 'unspecified'
+                };
+                // Cookie Editor uses expirationDate (epoch seconds), not expires
+                if (c.expires && c.expires > 0) {
+                    entry.expirationDate = c.expires;
+                    entry.session = false;
+                } else if (c.expirationDate && c.expirationDate > 0) {
+                    entry.expirationDate = c.expirationDate;
+                    entry.session = false;
+                } else {
+                    entry.session = true;
+                }
+                // hostOnly: true if domain does NOT start with a dot
+                entry.hostOnly = !entry.domain.startsWith('.');
+                entry.storeId = c.storeId || '0';
+                return entry;
+            });
+
+            res.json({taskId: id, cookies: cookieEditorFormat, count: cookieEditorFormat.length});
+        } catch (err) {
+            next(err);
+        }
+    });
+
     // disable keepalive for a task
     app.post('/instrument/:id/keepalive/disable', async function (req, res, next) {
         try {
