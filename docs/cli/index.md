@@ -37,12 +37,12 @@ node necrocli.js keepalive disable task:generic:abc123
 ```
 
 - `stats`: cluster queue/workers/error metrics.
-- `sessions`: redacted session summaries, cookie counts/domains, status, keepalive.
+- `sessions`: redacted session summaries grouped by status (completed, running, error, queued): task ID and type, cookie count and domains, keepalive flag (`KA` when enabled), and the `fixSession` URL when configured.
 - `tasks`: registered task types and methods.
 - `status`: task status and result entries.
-- `retrigger`: creates a new queued task from stored metadata.
-- `cookies`: exports Cookie Editor-compatible session cookies. Treat output as a credential file; use restrictive permissions and delete after authorized use.
-- `keepalive enable|disable`: toggles scheduler state for a stored task.
+- `retrigger`: creates a new queued task from stored metadata (same task type, method, cookies, params, and User-Agent).
+- `cookies`: exports session cookies as a Cookie Editor-compatible JSON array, to stdout or `--output <file>`. The array can be imported directly into the [Cookie Editor](https://cookie-editor.com/) extension. Treat output as a credential file; use restrictive permissions and delete after authorized use.
+- `keepalive enable|disable`: toggles scheduler state for a stored task. While enabled, the scheduler periodically loads the task's `fixSession` URL, harvests rotated cookies, and saves a screenshot.
 
 ## Safe workflow
 
@@ -51,6 +51,9 @@ export NECRO_API=http://127.0.0.1:3000
 node necrocli.js stats
 node necrocli.js tasks
 node necrocli.js status task:generic:abc123
+
+# Connect to a remote instance without changing the environment
+node necrocli.js --host http://10.0.0.5:3000 sessions
 ```
 
 Do not pass API URLs over untrusted networks. Do not export or retrigger sessions without authorization. Full endpoint behavior is in [API](/api).
