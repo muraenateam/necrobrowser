@@ -13,6 +13,9 @@ const { createNavigationPolicy } = require('./lib/navigation-policy');
 const { createRateLimiter } = require('./lib/rate-limit');
 const { createAudit } = require('./lib/audit');
 
+const TOOL_VERSION = require('./package.json').version;
+const DOCS_URL = 'https://necrobrowser.phishing.click/';
+
 function decodeStoredTask(task) {
     let cookies;
     let params;
@@ -147,6 +150,7 @@ async function createRuntime({ config, taskRegistry, database = db, pool } = {})
         app,
         pool: browserPool,
         db: database,
+        tasks,
         async close() {
             if (keepaliveTimer) clearInterval(keepaliveTimer);
             clearKeepalives();
@@ -174,11 +178,64 @@ async function startServer(runtime, { host, port } = {}) {
     };
 }
 
+function taskRegistrySummary(tasks) {
+    return Object.keys(tasks || {})
+        .filter(type => !type.includes('__'))
+        .map(type => `${type} [${(tasks[type] || []).join(', ')}]`);
+}
+
+function displayHost(address) {
+    const host = address?.address || '127.0.0.1';
+    return host === '::' ? '[::]' : host;
+}
+
+function printReadyBanner({ address, config, tasks, databasePath }) {
+    const host = displayHost(address);
+    const baseUrl = `http://${host}:${address?.port}`;
+    const taskLines = taskRegistrySummary(tasks);
+    const muraenaSnippet = [
+        '#[necrobrowser]',
+        `#    endpoint = "${baseUrl}/instrument"`,
+        '#    enable = true'
+    ];
+
+    const lines = [
+        `${c.green('\\+-+/')} ${c.green('NecroBrowser ready at')} ${c.bold(c.cyan(baseUrl))} ${c.green('\\+-+/')}`,
+        '',
+        `${c.gray('  version')}   ${TOOL_VERSION} (node ${process.version})`,
+        `${c.gray('  browser')}   concurrency=${config.cluster.concurrency} poolSize=${config.cluster.poolSize} taskTimeout=${config.cluster.taskTimeout}s`,
+        `${c.gray('  display')}   headless=${config.necro.headless} windowSize=${config.cluster.page.windowSize}`,
+        `${c.gray('  cloak')}     ${config.necro?.cloak?.enabled ? `enabled (humanize=${config.necro.cloak.humanize !== false})` : 'disabled (stock Puppeteer)'}`,
+        `${c.gray('  keepalive')} ${config.necro?.keepalive?.enabled ? `enabled (every ${config.necro.keepalive.delay}s)` : 'disabled'}`,
+        `${c.gray('  database')}  ${databasePath || ':memory:'}`,
+        `${c.gray('  docs')}      ${DOCS_URL}`
+    ];
+
+    lines.push('', `${c.gray('  tasks (POST /instrument, task.type / task.name)')}`);
+    if (taskLines.length) {
+        for (const line of taskLines) lines.push(`  ${c.gray(line)}`);
+    } else {
+        lines.push(`  ${c.yellow('  (no task modules loaded)')}`);
+    }
+
+    lines.push(
+        '',
+        `${c.gray('  Muraena instrumentation: point the necrobrowser module at this instance,')}`,
+        `${c.gray('  muraena config.toml:')}`,
+        '',
+        ...muraenaSnippet.map(line => `  ${c.cyan(line)}`),
+        '',
+        `${c.gray('  Docs:')} ${DOCS_URL} · ${c.gray('API:')} ${baseUrl + '/api'} · ${c.gray('CLI:')} necrocli.js`
+    );
+    console.log(lines.join('\n').trimEnd());
+}
+
 async function main() {
     const config = parseConfig();
-    console.log(c.red('NecroBrowser starting'));
-    console.log(`concurrency: [${config.cluster.concurrency}] poolSize: [${config.cluster.poolSize}] taskTimeout: [${config.cluster.taskTimeout}s]`);
-    console.log(`headless: [${config.necro.headless}] windowSize: [${config.cluster.page.windowSize}]`);
+    console.log(c.red('\\+-+/  NecroBrowser starting ...'));
+    console.log(`  ${c.gray('version')}     ${TOOL_VERSION} (node ${process.version})`);
+    console.log(`  ${c.gray('browser')}     concurrency=${config.cluster.concurrency} poolSize=${config.cluster.poolSize} taskTimeout=${config.cluster.taskTimeout}s`);
+    console.log(`  ${c.gray('display')}     headless=${config.necro.headless} windowSize=${config.cluster.page.windowSize}`);
 
     const runtime = await createRuntime({ config });
     const running = await startServer(runtime);
@@ -200,7 +257,12 @@ async function main() {
     process.once('SIGINT', () => void shutdown('SIGINT'));
 
     const address = running.address;
-    console.log(`\\+-+/ ... NecroBrowser ready at http://${address.address}:${address.port} ... \\+-+/`);
+    printReadyBanner({
+        address,
+        config: runtime.config,
+        tasks: runtime.tasks,
+        databasePath: db.getDatabasePath()
+    });
     return running;
 }
 

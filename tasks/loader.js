@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const c = require('chalk');
 const log = require('../lib/logger');
 
 function findTaskFiles(directory) {
@@ -29,7 +28,7 @@ exports.LoadTasks = ({ tasksRoot = path.resolve(__dirname), logger = console } =
         const names = Object.keys(module).filter(name => typeof module[name] === 'function');
         registry[taskType] = names;
         registry[`${taskType}__Tasks`] = module;
-        logger.log?.(`${c.green('[loader]')} parsed ${names.length} necrotasks for [${taskType}]:\n ${names.join('\n ')}`);
+        log.LogInfo(`[loader] parsed ${names.length} necrotasks for [${taskType}]: ${names.join(', ')}`);
     }
 
     return registry;

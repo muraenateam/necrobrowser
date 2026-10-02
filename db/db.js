@@ -95,6 +95,10 @@ function getDatabase() {
     return database || openDatabase();
 }
 
+function getDatabasePath() {
+    return databasePath;
+}
+
 function mapTask(row) {
     if (!row) return null;
     const task = {
@@ -274,6 +278,7 @@ module.exports = {
     CheckDatabase,
     RecoverInterruptedTasks,
     CloseDatabase,
+    getDatabasePath,
     AddTask,
     AddExtrudedData,
     UpdateTaskStatus,
