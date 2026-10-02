@@ -12,6 +12,10 @@ Necrobrowser binds to `platform.host` and `platform.port` from `config.toml` (sa
 
 All JSON requests need `Content-Type: application/json`. Responses may include task status, paths, and redacted metadata; cookie values are not returned by status endpoints.
 
+## Rate limiting
+
+Requests are limited per client address with a fixed one-minute window of `requestsPerMinute` (sample: `60`). `/healthz` is exempt. Successful responses include `X-RateLimit-Remaining`; exceeding the limit returns `429` with a `Retry-After` header and body `{"error":"Rate limit exceeded","retryAfter":<seconds>}`.
+
 ## `GET /healthz`
 
 Liveness check. Rate limiting skips this route.
@@ -53,6 +57,8 @@ curl -sS -X POST http://127.0.0.1:3000/cookie-jar/dry-run \
 ```
 
 Use this for shape/policy checks only. It does not authenticate a session.
+
+Jars are validated against fixed limits: at most `500` cookies, `8192` bytes per cookie value, and `1 MiB` total. Every cookie needs a `domain` or a valid `url`, and conflicting duplicates are rejected. Expired cookies are accepted and injected as-is.
 
 ## `POST /instrument`
 

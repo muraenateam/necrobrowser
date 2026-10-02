@@ -8,7 +8,7 @@ has_toc: true
 
 # `necrocli`
 
-`necrocli.js` talks to the Necrobrowser HTTP API. It does not access SQLite directly. Default API is `http://localhost:3000`; set `NECRO_API` or pass `--host`.
+`necrocli.js` talks to the Necrobrowser HTTP API. It does not access SQLite directly. Default API is `http://127.0.0.1:3000`; set `NECRO_API` or pass `--host`.
 
 ```bash
 npm install
@@ -19,7 +19,7 @@ node necrocli.js --help
 
 | Option | Meaning |
 | --- | --- |
-| `--host <url>` | API URL. Default `http://localhost:3000`. |
+| `--host <url>` | API URL. Default `http://127.0.0.1:3000`. |
 | `-V, --version` | Print CLI version. |
 | `-h, --help` | Print help. |
 

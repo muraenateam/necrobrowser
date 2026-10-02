@@ -3,6 +3,7 @@ layout: default
 title: Architecture
 permalink: /architecture
 nav_order: 5
+has_children: true
 has_toc: true
 ---
 
@@ -31,6 +32,10 @@ POST /instrument
 - `puppeteer/launcher.js`: selects stock Puppeteer or opt-in Cloakbrowser.
 - `browser/pool.js`: bounded queue, concurrency, retries, timeout, page/context/browser cleanup.
 - `lib/app.js`: dependency-injected Express routes and request validation.
+- `lib/audit.js`: structured audit events; sensitive fields are redacted before logging.
+- `lib/cookie-jar.js`: cookie-jar validation and summaries under fixed size limits.
+- `lib/navigation-policy.js`: URL scheme and host policy (`allowHttp`, `allowPrivateNetworks`).
+- `lib/rate-limit.js`: per-client fixed-window rate-limit middleware.
 - `db/db.js`: SQLite schema and persistence.
 - `tasks/loader.js`: static task registry and error wrapper.
 - `tasks/helpers/necrohelp.js`: cookies, navigation, screenshots, output containment, User-Agent configuration.
@@ -62,3 +67,7 @@ SQLite stores encoded cookie data and task parameters. Protect database, backups
 ## Output containment
 
 Task output must stay under configured `platform.extrusionPath`. Use `necrohelp.getOutputPath()` or task-specific helpers. Client-provided `outputPath` is resolved and rejected when it escapes configured root.
+
+## Design history
+
+Retrigger, keepalive, and CLI originated from an approved design and implementation plan; the historical notes live under this page and describe the Redis-era storage they targeted.

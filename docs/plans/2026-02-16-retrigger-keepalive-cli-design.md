@@ -1,3 +1,11 @@
+---
+layout: default
+title: Retrigger, Keepalive, and CLI design
+parent: Architecture
+nav_order: 1
+has_children: false
+---
+
 # Design: Retrigger API, Keepalive, and CLI
 
 ## Problem

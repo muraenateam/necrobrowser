@@ -51,7 +51,7 @@ NecroBrowser reads `config.toml` at startup. Relative paths resolve from directo
 | `allowPrivateNetworks` | `true` | Permits private/loopback targets. Disable for hardened deployments. |
 | `allowHttp` | `true` | Permits HTTP targets. Disable to require HTTPS. |
 | `requestsPerMinute` | `60` | Rate-limit window. |
-| `burst` | `20` | Reserved API burst setting; verify deployment behavior before relying on it. |
+| `burst` | `20` | Reserved key. Not read at runtime; currently has no effect. |
 | `requestBodyLimit` | `2mb` runtime fallback | Express JSON request size limit when set. |
 
 ### `[cluster]`

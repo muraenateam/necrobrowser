@@ -1,3 +1,11 @@
+---
+layout: default
+title: Retrigger, Keepalive, and CLI plan
+parent: Architecture
+nav_order: 2
+has_children: false
+---
+
 # Retrigger API, Keepalive, and CLI Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
