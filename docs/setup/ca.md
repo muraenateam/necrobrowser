@@ -1,16 +1,18 @@
+---
+layout: default
+title: Local certificates
+permalink: /setup/ca
+parent: Setup
+nav_order: 1
+---
 
+# Local certificates with `mkcert`
 
+Use this only for local development or controlled test fixtures. Do not reuse development keys in production and do not trust a generated CA on machines outside your test boundary.
 
+## Install `mkcert`
 
-## Installing mkcert
-
-The first step is to install `mkcert` on your system. `mkcert` is a simple tool that allows you to create a local CA and 
-generate locally-trusted certificates. This is useful for development and testing purposes, as it allows you to create 
-SSL certificates that are trusted by your browser, without having to pay for a certificate from a public CA.
-
-To install `mkcert`, follow the instructions on the [official website](https://mkcert.dev/). 
-The installation process is straightforward and should only take a few minutes.
-
+Follow the [official installation guide](https://mkcert.dev/). On Linux x64, one example is:
 
 ```bash
 curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
@@ -18,16 +20,17 @@ chmod +x mkcert-v*-linux-amd64
 sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
 ```
 
-Once `mkcert` is installed, you can use it to create a local CA and generate locally-trusted certificates.
+## Create local CA and certificate
 
 ```bash
-mkdir -p ~/tools/muraena/config 
+mkdir -p ~/tools/muraena/config
 cd ~/tools/muraena/config
 
 mkcert -install
-cp `mkcert -CAROOT`/rootCA.pem fullchain.pem
-
-mkcert phishing.click *.phishing.click
+cp "$(mkcert -CAROOT)/rootCA.pem" fullchain.pem
+mkcert phishing.click '*.phishing.click'
 mv phishing.click+1-key.pem privkey.pem
 mv phishing.click+1.pem cert.pem
 ```
+
+Keep `privkey.pem`, `rootCA.pem`, and generated certificates private. Configure the consuming local service with paths expected by that service. Necrobrowser itself does not automatically configure TLS termination; place HTTPS behind a local reverse proxy or fixture server when required.

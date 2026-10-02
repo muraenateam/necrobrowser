@@ -14,7 +14,7 @@ const expectedTasks = {
     gsuite: ['ScreenshotApps'],
     office365: ['AddAuthenticatorApp', 'ScreenshotApps', 'SharepointExtrude', 'OneDriveExtrude', 'OutlookWriteEmail', 'OutlookExtrude'],
     okta: ['LoginAndEnumerate'],
-    generic: ['ScreenshotPages'],
+    generic: ['Screenshot', 'Click', 'Fill', 'Scroll', 'Press'],
     keepalive: ['KeepAlive']
 };
 
@@ -51,7 +51,7 @@ describe('task layout migration', () => {
     test('supports bounded screenshot delay parameter', () => {
         const source = fs.readFileSync(path.join(activeTasks, 'generic', 'necrotask.js'), 'utf8');
         expect(source).toContain('waitBeforeScreenshotMs');
-        expect(source).toContain('waitBeforeScreenshotMs > 300000');
+        expect(source).toContain('MAX_WAIT_MS = 300000');
     });
 
     test('output paths stay inside configured extrusion directory', () => {

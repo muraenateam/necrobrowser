@@ -4,14 +4,14 @@ const path = require('path');
 
 describe('Necrobrowser Task Execution', () => {
 
-  describe('Generic ScreenshotPages Task', () => {
+  describe('Generic Screenshot Task', () => {
     let taskId;
     const testUrls = [
       'https://example.com',
       'https://www.wikipedia.org'
     ];
 
-    test('should successfully submit ScreenshotPages task', async () => {
+    test('should successfully submit Screenshot task', async () => {
       const response = await fetch(`${baseURL}/instrument`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -19,7 +19,7 @@ describe('Necrobrowser Task Execution', () => {
           name: 'screenshot-test',
           task: {
             type: 'generic',
-            name: ['ScreenshotPages'],
+            name: ['Screenshot'],
             params: {
               urls: testUrls
             }
@@ -109,7 +109,7 @@ describe('Necrobrowser Task Execution', () => {
             name: `concurrent-test-${i}`,
             task: {
               type: 'generic',
-              name: ['ScreenshotPages'],
+              name: ['Screenshot'],
               params: {
                 urls: ['https://example.com']
               }
@@ -152,7 +152,7 @@ describe('Necrobrowser Task Execution', () => {
           name: 'invalid-url-test',
           task: {
             type: 'generic',
-            name: ['ScreenshotPages'],
+            name: ['Screenshot'],
             params: {
               urls: ['not-a-valid-url']
             }
@@ -185,7 +185,7 @@ describe('Necrobrowser Task Execution', () => {
           name: 'worker-status-test',
           task: {
             type: 'generic',
-            name: ['ScreenshotPages'],
+            name: ['Screenshot'],
             params: {
               urls: ['https://example.com']
             }
@@ -236,7 +236,7 @@ describe('Necrobrowser Task Execution', () => {
           name: 'cookie-test',
           task: {
             type: 'generic',
-            name: ['ScreenshotPages'],
+            name: ['Screenshot'],
             params: {
               urls: ['https://example.com']
             }
@@ -259,53 +259,4 @@ describe('Necrobrowser Task Execution', () => {
     });
   });
 
-  describe('Antisnatchor.com Screenshot Test', () => {
-    test('should screenshot antisnatchor.com and save to /tmp', async () => {
-      const response = await fetch(`${baseURL}/instrument`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'antisnatchor-screenshot',
-          task: {
-            type: 'generic',
-            name: ['ScreenshotPages'],
-            params: {
-              urls: ['https://antisnatchor.com'],
-              outputPath: '/tmp'
-            }
-          },
-          cookie: []
-        })
-      });
-
-      expect(response.status).toBe(200);
-      const data = await response.json();
-
-      expect(data.status).toBe('queued');
-      expect(data.necroIds).toHaveLength(1);
-
-      const taskId = data.necroIds[0];
-      const shortId = taskId.split(':')[2];
-
-      // Wait for completion
-      const result = await waitForTaskCompletion(taskId, 10000);
-
-      expect(result.status).toBe('completed');
-
-      // Verify screenshot file exists in /tmp
-      const screenshotPath = `/tmp/screenshot_antisnatchor.com_${shortId}.png`;
-      const fs = require('fs');
-
-      expect(fs.existsSync(screenshotPath)).toBe(true);
-
-      // Verify file is not empty
-      const stats = fs.statSync(screenshotPath);
-      expect(stats.size).toBeGreaterThan(0);
-
-      console.log(`Screenshot saved to: ${screenshotPath} (${stats.size} bytes)`);
-
-      // Clean up
-      fs.unlinkSync(screenshotPath);
-    });
-  });
 });

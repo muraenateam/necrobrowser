@@ -1,158 +1,147 @@
 ---
 layout: default
-title: RESTful API
+title: REST API
 permalink: /api
 nav_order: 4
-has_children: true
 has_toc: true
 ---
 
-# RESTful API
+# REST API
 
-Necrobrowser is a microservice that exposes the following RESTful API:
+Necrobrowser binds to `platform.host` and `platform.port` from `config.toml` (sample: `127.0.0.1:3000`). API has no built-in authentication layer. Keep it on a trusted interface or protect it with an authenticated reverse proxy.
 
-## GET `/`
+All JSON requests need `Content-Type: application/json`. Responses may include task status, paths, and redacted metadata; cookie values are not returned by status endpoints.
 
-Returns the status of the NecroBrowser cluster, showing generic information about queue size and processed tasks.
+## `GET /healthz`
+
+Liveness check. Rate limiting skips this route.
+
 ```json
-{ 
-  "startedAt":"2020-11-27 16:38:47",
-  "workers":"0",  
-  "queued":"0",
-  "progress":"0 / 0 (100.00%)",
-  "errors":"0 (0.00%)",
-  "tasks":[]
-}
+{"status":"ok"}
 ```
 
-## GET `/tasks`
-Returns the available Task types and their exposed methods.
+## `GET /`
+
+Returns cluster metrics such as `startedAt`, `workers`, `queued`, `active`, `progress`, `errors`, and `tasks`.
+
+## `GET /tasks`
+
+Returns task types and exported method names discovered from `tasks/*/necrotask.js`.
 
 ```json
 {
-"github":[
-   "PlantAndDump"
- ],
-"gsuite":[
-   "ScreenshotApps"
- ],
-"office365":[
-   "ScreenshotApps",
-   "SharepointExtrude",
-   "OneDriveExtrude",
-   "OutlookWriteEmail",
-   "OutlookExtrude"
-  ]
+  "generic": ["Click", "Fill", "Press", "Screenshot", "Scroll"],
+  "atlassian": ["GetProfileInfo", "GetAccountSettingsScreenshots", "AddAuthenticatorApp"],
+  "github": ["PlantAndDump"],
+  "gsuite": ["ScreenshotApps"],
+  "office365": ["AddAuthenticatorApp", "ScreenshotApps", "SharepointExtrude", "OneDriveExtrude", "OutlookWriteEmail", "OutlookExtrude"],
+  "okta": ["LoginAndEnumerate"],
+  "keepalive": ["KeepAlive"]
 }
 ```
 
-## POST `/instrument`
+Names are case-sensitive. See [task catalog](/tasks) for parameters.
 
-Queue the specified instrumentation task spawning a dedicated Chrome headless instance.
-Let's say we want to trigger the office365.OutlookWriteEmail task. We would use a POST body like the following:
+## `POST /cookie-jar/dry-run`
+
+Validates and summarizes a cookie jar without storing it, starting a browser, or queueing a task.
+
+```bash
+curl -sS -X POST http://127.0.0.1:3000/cookie-jar/dry-run \
+  -H 'content-type: application/json' \
+  --data '{"cookies":[]}'
+```
+
+Use this for shape/policy checks only. It does not authenticate a session.
+
+## `POST /instrument`
+
+Queues one or more methods from one task type. Entire batch validates before any task record is created.
 
 ```json
- {
-  "name": "NecroTest",
+{
+  "name": "local-screenshot",
   "task": {
-      "type": "office365",
-      "name": "OutlookWriteEmail",
-      "params": {
-         "fixSession": "https://outlook.office.com/mail/inbox",
-         "writeEmail": {
-            "to": "WikiInternal@ogre.onmicrosoft.com",
-            "subject": "All your sessions are belong to us",
-            "data": "NecroBrowser is impersonating this user.\nBye",
-            "attachment": "./testing/attachment.png"
-          }
-      }
-    }, 
-  "cookies": [
-    {...}
-  ], 
-  "credentials": [
-    {...}
-  ]
-}
-```
-
-The POST returns immediately the queued job id as the following, while the task is queued into the cluster:
-
-```json
-{
-    "status":"queued",
-    "necroId":"task:office365:Q8FAt0bGZ"
-}
-```
-
-The `necroId` can be used to poll the task details via GET `/instrument/<necroId>` until the task status is completed. The submitted cookie jar is validated before queueing, persisted in protected local SQLite, and loaded into the browser before the task's first navigation. Cookie values are never returned by the API.
-
-`POST /cookie-jar/dry-run` remains diagnostics-only: it validates and summarizes a jar but never stores cookies, starts a browser, or queues a task.
-
-Cookie loading happens through normal `/instrument` jobs; there is no separate cookie-loading endpoint.
-
-Note that since the instrumentation activity is asynchronous, when long-running tasks save intermediate data to the database,
-that data is immediately accessible from the API. So, depending on your needs, you might want to poll less or more frequently
-the instrument handler depending on your needs.
-
-Cookies need to be specified as an array of JSON objects with the following structure:
-
-```json
-"cookies":[
-    {
-        "domain": ".github.com",
-        "expirationDate": 1664018069,
-        "hostOnly": false,
-        "httpOnly": false,
-        "name": "_ga",
-        "path": "/",
-        "sameSite": "unspecified",
-        "secure": false,
-        "session": false,
-        "storeId": "0",
-        "value": "GA1.2.26244907.1600769408",
-        "id": 1
-    },
-    {
-     ... 
+    "type": "generic",
+    "name": ["Screenshot"],
+    "params": {
+      "urls": ["http://127.0.0.1:4000/"],
+      "waitBeforeScreenshotMs": 1000,
+      "outputPath": "fixture"
     }
-]
-```
-
-To quickly export all page cookies from a logged session, on Chrome the 
-[EditThisCookie](https://chrome.google.com/webstore/detail/editthiscookie/fngmhnnpilhplaeedifhccceomclgfbg) extension 
-can be used. This is useful when developing/testing new necro modules.
-
-When NecroBrowser is used together with Muraena, the victim credentials and full cookie jar are sent in the request. If a task uses `params.trackers`, NecroBrowser stores supplied credentials locally under `victim:<tracker>` for later credential-dependent task steps. The SQLite database contains sensitive values and must be protected.
-
-
-### UserAgent Spoofing (Browser Fingerprint Matching)
-
-The optional `userAgent` field configures Necrobrowser to impersonate the victim's
-browser fingerprint when replaying hijacked sessions.
-
-```json
-{
-  "name": "NecroTest",
-  "task": { "..." : "..." },
-  "cookie": [ "..." ],
-  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ..."
+  },
+  "cookies": [],
+  "userAgent": ""
 }
 ```
 
-When provided, Necrobrowser will:
-1. Set the browser's User-Agent header via `page.setUserAgent()`
-2. Parse the UA to extract OS, browser, and device information
-3. Configure `navigator.platform` to match (Win32, MacIntel, Linux x86_64, etc.)
-4. Set mobile viewport dimensions and touch support for mobile UAs
-5. Use Chrome DevTools Protocol `Emulation.setUserAgentOverride` for full consistency
+Accepted cookie fields: `cookies` or legacy singular `cookie`, but do not send conflicting values. `credentials` and `tracker` support task-specific credential lookup. Never put real secrets in source-controlled examples.
 
-This prevents target sites from detecting session hijacking via UA mismatch.
-When used with Muraena, the victim's UA is automatically captured and forwarded
-via the `%%%USERAGENT%%%` template placeholder in the instrument profile.
+Success:
 
-## GET  `/instrument/:id`
+```json
+{"status":"queued","necroIds":["task:generic:abc123"]}
+```
 
-Returns instrumentation status and output, for example scraped web pages data, images or files.
-The JSON output keys vary depending on the necrotask used,
-but in general they are stored as maps of strings.
+A task can finish as `queued`, `running`, `completed`, `partial`, or `error`. Queue failure returns `503` with `queuedIds` and `failedId` where applicable. Validation failures return `400`.
+
+## `GET /instrument/:id`
+
+Poll task state and results.
+
+```json
+{"status":"completed","data":[{"url":"https://example.test/","encoded":"/absolute/path/to/screenshot.png"}]}
+```
+
+While queued, `data` is `null`. For errors, `data` contains a safe reason. Result `encoded` is historical naming: entries may contain base64 data or a contained filesystem path depending on task.
+
+```bash
+curl -sS http://127.0.0.1:3000/instrument/task:generic:abc123
+```
+
+## `POST /instrument/:id/retrigger`
+
+Creates a new task using stored task type, method, cookies, params, and User-Agent.
+
+```bash
+curl -sS -X POST http://127.0.0.1:3000/instrument/task:generic:abc123/retrigger
+```
+
+Response:
+
+```json
+{"status":"queued","necroId":"task:generic:def456","retriggeredFrom":"task:generic:abc123"}
+```
+
+## `GET /sessions`
+
+Returns a redacted session summary: task ID, type, method, status, cookie count, cookie domains, `fixSession`, truncated User-Agent, keepalive state, timestamp, and total count. Cookie values are not returned.
+
+## Keepalive routes
+
+- `POST /instrument/:id/keepalive/enable`
+- `POST /instrument/:id/keepalive/disable`
+
+```bash
+curl -sS -X POST http://127.0.0.1:3000/instrument/task:generic:abc123/keepalive/enable
+```
+
+Response:
+
+```json
+{"status":"ok","taskId":"task:generic:abc123","keepalive":"enabled"}
+```
+
+Keepalive requires task params containing an authorized `fixSession` URL. Scheduler behavior is configured under `[necro.keepalive]`.
+
+## `GET /instrument/:id/cookies`
+
+Exports stored cookies in Cookie Editor-compatible shape. This is a credential export endpoint. Keep API private, protect response files, and use only for authorized sessions.
+
+```bash
+curl -sS http://127.0.0.1:3000/instrument/task:generic:abc123/cookies > cookies.json
+```
+
+## Navigation and policy
+
+Every submitted navigation URL is checked by configured policy. `allowHttp` and `allowPrivateNetworks` are enabled in the sample for local development; disable them for hardened deployments. URL credentials and unsupported schemes are rejected. See [configuration](/config).

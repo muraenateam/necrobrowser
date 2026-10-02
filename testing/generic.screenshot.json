@@ -1,0 +1,17 @@
+{
+  "name": "local-screenshots",
+  "task": {
+    "type": "generic",
+    "name": ["Screenshot"],
+    "params": {
+      "urls": [
+        "http://127.0.0.1:4000/fixture",
+        "http://127.0.0.1:4000/fixture/second"
+      ],
+      "waitBeforeScreenshotMs": 1000,
+      "outputPath": "examples",
+      "credentials": []
+    }
+  },
+  "cookies": []
+}

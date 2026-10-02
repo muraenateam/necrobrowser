@@ -76,3 +76,4 @@ exclude:
    - Dockerfile
  # theme test code
    - fixtures/
+   - README.md

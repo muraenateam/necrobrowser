@@ -5,50 +5,52 @@ permalink: /
 nav_order: 1
 ---
 
-<img src="images/logo.png" alt="drawing" style="width:300px; display:block; margin-left:auto; margin-right:auto"/>
-<p align="center">
-<a href="https://github.com/muraenateam/necrobrowser/blob/master/LICENSE.md"><img alt="Software License" src="https://img.shields.io/badge/license-BSD3-brightgreen.svg?style=flat-square"></a>
-</p>
+<img src="images/logo.png" alt="Necrobrowser logo" style="width:300px; display:block; margin-left:auto; margin-right:auto"/>
 
 # Necrobrowser
-{: .fs-9 }
 
-Necromantic session control
+Browser task orchestration for authorized security testing, local fixtures, and controlled automation.
 
-{: .fs-6 .fw-300 }
+[Get started](/setup)
 
-
-
-[Get started now](/setup){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[View it on GitHub](https://github.com/muraenateam/necrobrowser){: .btn .fs-5 .mb-4 .mb-md-0 }
+[API reference](/api)
 
 ---
 
-## About Necrobrowser
+## Documentation map
 
-Necrobrowser is a browser instrumentation microservice written in NodeJS.
-It uses the Puppeteer library to control instances of Chrome or Firefox in headless and GUI mode.
+1. **[Setup](/setup)** — install runtime, configure paths, and create local certificates.
+2. **[Configuration](/config)** — complete TOML reference and safe defaults.
+3. **[REST API](/api)** — routes, request/response shapes, polling, sessions.
+4. **[Architecture](/architecture)** — runtime components, browser isolation, task lifecycle.
+5. **[Tasks](/tasks)** — task contract and task-specific references:
+   - [Generic primitives](/tasks/generic)
+   - [Atlassian](/tasks/atlassian)
+   - [GitHub](/tasks/github)
+   - [GSuite](/tasks/gsuite)
+   - [Office 365](/tasks/office365)
+   - [Okta](/tasks/okta)
+   - [Keepalive](/tasks/keepalive)
+6. **[Examples](/examples)** — safe local request template.
+7. **[Testing](/testing)** — test matrix, fixture rules, and local docs preview.
+8. **[CLI](/cli)** — `necrocli` command reference.
 
-The idea is to feed NecroBrowser with web sessions harvested during phishing campaigns
-(see Muraena) to quickly perform actions hijacking the victim session.
+## Choose a path
 
-Post-phishing automation is an often underestimated activity that helps with:
-- performing actions after successful session harvesting on campaigns with hundreds/thousands targets
-- backdooring accounts with new keys or credentials
-- performing automated password resets on third-party portals
-- scraping and extruding information
-- impersonating users to further exploit trust relationships
+- **New installation:** [Setup](/setup) → [Configuration](/config) → [Examples](/examples).
+- **API client:** [REST API](/api) → [Tasks](/tasks) → [Testing](/testing).
+- **Task author:** [Tasks](/tasks) → source-level task contract.
+- **Operations:** [Architecture](/architecture) → [Configuration](/config) → [CLI](/cli).
 
-Each authenticated session is instrumented in its own Chrome browser in Incognito mode,
-and can be kept alive to be reused after an initial set of automated tasks are launched.
+## What it does
 
-Since NecroBrowser is just a browser instrumentation tool, you can also write
-automation for other red teaming phases, for example initial Reconnaisance and OSINT.
+Necrobrowser is a Node.js service that queues browser tasks through a bounded Puppeteer pool. It persists task metadata and results in local SQLite, supports isolated browser/context/page concurrency, and exposes HTTP endpoints for queueing work and polling results.
 
-There are plenty of use cases, for instance:
-- keep N fake personas on LinkedIn/Twitter/YourSocialNetwork active on Chrome to monitor/scrape info from your targets
-- automatically build Social Network connections
-- automate interaction with target contact forms/chats to get target info
+Browser sessions, cookies, credentials, screenshots, profiles, and extracted files are sensitive. Use only systems and sessions you own or are explicitly authorized to test. Keep service binding, database files, and exported cookies private.
 
-In other words, NecroBrowser allows you to define your Puppeteer tasks in advance,
-which you can then call on a cluster of headless browsers, with durable local SQLite persistence.
+## Source of truth
+
+- Operational and user-facing documentation lives in this site under `docs/`.
+- Repository-local engineering instructions live in [`CLAUDE.md`](https://github.com/muraenateam/necrobrowser/blob/necro_spoof/CLAUDE.md).
+- Safe local payload template lives in [`testing/`](https://github.com/muraenateam/necrobrowser/tree/necro_spoof/testing); it contains no credentials.
+- Local preview instructions live in [`docs/README.md`](README.md).

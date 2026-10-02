@@ -48,9 +48,9 @@ describe('Necrobrowser API Endpoints', () => {
       expect(data).toHaveProperty('office365');
       expect(data).toHaveProperty('github');
 
-      // Check that generic has ScreenshotPages
+      // Check that generic has Screenshot
       expect(Array.isArray(data.generic)).toBe(true);
-      expect(data.generic).toContain('ScreenshotPages');
+      expect(data.generic).toContain('Screenshot');
     });
 
     test('should not include internal task names', async () => {
@@ -123,7 +123,7 @@ describe('Necrobrowser API Endpoints', () => {
           name: 'test-task',
           task: {
             type: 'generic',
-            name: ['ScreenshotPages'],
+            name: ['Screenshot'],
             params: {
               urls: ['https://example.com']
             }
@@ -155,7 +155,7 @@ describe('Necrobrowser API Endpoints', () => {
           name: 'test-query',
           task: {
             type: 'generic',
-            name: ['ScreenshotPages'],
+            name: ['Screenshot'],
             params: {
               urls: ['https://example.com']
             }

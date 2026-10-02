@@ -13,6 +13,9 @@
     "test:all": "npm test && npm run check && npm run test:e2e",
     "test:all:external": "npm run test:all && npm run test:e2e:external",
     "cli": "node necrocli.js",
+    "docs:check": "node scripts/check-docs.js",
+    "docs:build": "node scripts/docs-preview.js --build",
+    "docs:preview": "node scripts/docs-preview.js --serve",
     "test:e2e": "NECRO_RUN_BROWSER_TESTS=1 NODE_OPTIONS=--experimental-vm-modules jest --config jest.e2e.config.js --runInBand",
     "test:e2e:external": "NECRO_RUN_BROWSER_TESTS=1 NECRO_EXTERNAL_SMOKE=1 NODE_OPTIONS=--experimental-vm-modules jest --config jest.e2e.config.js --runInBand",
     "check": "node --check necrobrowser.js && node --check db/db.js && node --check lib/app.js && node --check lib/navigation-policy.js && node --check lib/cookie-jar.js && node --check lib/rate-limit.js && node --check lib/audit.js && node --check browser/pool.js && node --check puppeteer/cluster.js && node --check puppeteer/launcher.js && node --check tasks/loader.js && node --check test/browser.e2e.js"
@@ -47,6 +50,7 @@
   },
   "devDependencies": {
     "jest": "^29.7.0",
+    "marked": "^18.0.14",
     "typescript": "^5.9.3"
   }
 }

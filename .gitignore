@@ -1,10 +1,21 @@
+# Editor and OS files
 .idea/
 .DS_Store
 .DS_Store?
+
+# Dependencies and generated build output
 node_modules/
 dist/
+
+# Runtime data
 extrusion/
 profiles/
 necro.db
 necro.db-shm
 necro.db-wal
+
+# Local docs build output
+_site/
+docs/_site/
+.docs-preview/
+.jekyll-cache/

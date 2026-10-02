@@ -1,6 +1,8 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides repository-local guidance for Claude Code and other coding agents. User-facing operational documentation is maintained in `docs/` and published at https://necrobrowser.phishing.click/.
+
+For agent workflow, documentation checks, and safe editing rules, see `docs/development/agents.md`.
 
 ## Reliability rules
 
@@ -78,7 +80,7 @@ npm start
 
 Service binds to `127.0.0.1:3000` by default. Set `NECRO_DB_PATH` for isolated environments. Stop with `SIGTERM` or `SIGINT` for graceful browser/database cleanup. If port 3000 is already occupied, stop the old process before restarting; starting a second instance on same port fails with `EADDRINUSE`.
 
-For controlled external smoke tests, use no real accounts or cookies. Queue `generic.ScreenshotPages` with public URLs and an output path under configured extrusion directory, then poll `GET /instrument/:id` until terminal status and verify returned files exist. Keep this workflow opt-in; default tests use local fixtures.
+For controlled external smoke tests, use no real accounts or cookies. Queue `generic.Screenshot` with local/authorized URLs and an output path under configured extrusion directory, then poll `GET /instrument/:id` until terminal status and verify returned files exist. Keep this workflow opt-in; default tests use local fixtures.
 
 ### Testing
 ```bash
@@ -146,11 +148,12 @@ Install with `npm install`. Key dependencies:
 - `credentials` stores imported external credential lookups for tasks that need them.
 - Database contains session cookies. Keep its directory private and protect backups.
 
-## Testing Examples
+## Documentation map
 
-See `testing/` directory for complete task examples:
-- `office365.addAuthApp.json` - Add authenticator app with Telegram notification
-- `office365.dumpEmails.json` - Search and extrude emails by keywords
-- `office365.writeEmail.json` - Send email from hijacked session
-- `generic.screenshotPages.json` - Screenshot multiple URLs
-- `github.plantAndDump.json` - GitHub automation example
+User-facing documentation is published at https://necrobrowser.phishing.click/:
+- `/setup`, `/config`, `/api` — install, configuration, REST routes
+- `/tasks`, `/examples`, `/testing` — task catalog, payload guidance, test matrix
+- `/architecture`, `/cli`, `/security` — runtime model, CLI, data protection
+- `/development/agents` — safe coding-agent workflow
+
+`testing/` contains sanitized local templates only. Keep credentials, cookies, tokens, keys, and account data out.

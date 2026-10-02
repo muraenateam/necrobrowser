@@ -1,6 +1,6 @@
 # NecroBrowser Code-Quality Enhancements
 
-> Historical roadmap. Core reliability/test items are now implemented in `browser/pool.js`, `lib/app.js`, and the default Jest suite. CloakBrowser/stealth integration remains intentionally deferred.
+> Historical roadmap. Core reliability/test items are now implemented in `browser/pool.js`, `lib/app.js`, and the default Jest suite. Cloakbrowser integration is now available as an opt-in launcher; see `docs/config/index.md`. This file is not an operational runbook.
 
 Prioritized roadmap from the September 2026 code-quality review.
 

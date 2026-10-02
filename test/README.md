@@ -16,7 +16,7 @@ npm run check
 
 - `unit.test.js` — validation, task loader, browser-pool behavior, and dependency-injected app tests.
 - `integration.test.js` — app-to-task flow against a local HTTP fixture and ephemeral ports.
-- `api.test.js` / `tasks.test.js` — legacy full-process/browser suites; excluded from the default suite until migrated to local fixtures.
+- `api.test.js` / `tasks.test.js` — additional API/task workflows excluded by `jest.e2e.config.js` path filters; run deliberately after reviewing network and fixture assumptions. Current default coverage is listed in [docs/testing](../docs/testing/index.md).
 - `setup.js` — shared polling helper; no global server or database service startup.
 
 ## Test rules

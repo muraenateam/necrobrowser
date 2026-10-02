@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Installing NecroBrowser
+title: Setup
 permalink: /setup
 nav_order: 2
 has_children: true
@@ -37,6 +37,10 @@ node necrobrowser.js
 
 SQLite is local to one NecroBrowser process. Local installations enable HTTP/private-network navigation by default; set `allowHttp = false` and/or `allowPrivateNetworks = false` for hardened deployments. Multiple independent service replicas should use separate databases and coordination outside this application.
 
+## Section contents
+
+- [Local certificates](ca.md) — development-only `mkcert` setup.
+
 ## Quick check
 
 ```bash
@@ -46,10 +50,12 @@ curl -X POST "http://127.0.0.1:3000/instrument" \
           "name": "HelloWorld",
           "task": {
               "type": "generic",
-              "name": [ "ScreenshotPages" ],
+              "name": [ "Screenshot" ],
               "params": { "urls": ["https://example.com/"] }
             }
         }'
 ```
 
-This instructs NecroBrowser to take a screenshot of `https://example.com/` and store it in `extrusion`. To replay a Cookie-Editor jar, include it as the request's `cookies` array; NecroBrowser validates it, stores it in protected SQLite, and injects it before task navigation. Never expose this API publicly: cookies are session credentials.
+This instructs NecroBrowser to take a screenshot of `https://example.com/` and store it in `extrusion`. For a fully local first run, replace URL with a local fixture and set `allowHttp = true`, `allowPrivateNetworks = true`. To replay a Cookie-Editor jar, include it as request `cookies` array; NecroBrowser validates it, stores it in protected SQLite, and injects it before task navigation. Never expose this API publicly: cookies are session credentials.
+
+Next: read [configuration](/config), [API reference](/api), [task catalog](/tasks), [examples](/examples), and [testing](/testing). For local development certificates, see [mkcert setup](ca.md). Cloakbrowser setup is documented in [configuration](/config) and remains opt-in for authorized lab/CTF targets.

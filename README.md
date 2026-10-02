@@ -86,7 +86,17 @@ The E2E suite never adds generic click/type automation to production task module
 
 ## Documentation
 
-That the project is documented at https://necrobrowser.phishing.click
+Full navigable documentation: [necrobrowser.phishing.click](https://necrobrowser.phishing.click/).
+
+- [Setup](https://necrobrowser.phishing.click/setup)
+- [Configuration](https://necrobrowser.phishing.click/config)
+- [REST API](https://necrobrowser.phishing.click/api)
+- [Task catalog](https://necrobrowser.phishing.click/tasks)
+- [Examples](https://necrobrowser.phishing.click/examples)
+- [Testing](https://necrobrowser.phishing.click/testing)
+- [CLI](https://necrobrowser.phishing.click/cli)
+- [Architecture](https://necrobrowser.phishing.click/architecture)
+- [Coding-agent guidance](https://necrobrowser.phishing.click/development/agents)
 
 ## Contributing
 
