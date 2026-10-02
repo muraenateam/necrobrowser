@@ -11,6 +11,8 @@ nav_order: 1
 
 Browser task orchestration for authorized security testing, local fixtures, and controlled automation.
 
+Current version: `{{ site.version }}`
+
 [Get started](/setup)
 
 [API reference](/api)

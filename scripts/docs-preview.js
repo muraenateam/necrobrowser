@@ -10,6 +10,7 @@ const { marked } = require('marked');
 const root = path.resolve(__dirname, '..');
 const docsRoot = path.join(root, 'docs');
 const outputRoot = path.join(root, '.docs-preview');
+const toolVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
 const host = '127.0.0.1';
 const port = Number(process.env.DOCS_PORT || 4000);
 const siteUrl = `http://${host}:${port}/`;
@@ -195,7 +196,7 @@ async function build() {
     for (const page of pages) {
         const markdown = renderMarkdown(page.body);
         page.sections = markdown.sections;
-        const rendered = rewriteLinks(markdown.html);
+        const rendered = rewriteLinks(markdown.html).split('{{ site.version }}').join(toolVersion);
         const target = path.join(outputRoot, routeFile(page.route));
         await fsp.mkdir(path.dirname(target), { recursive: true });
         await fsp.writeFile(target, shell(page, rendered, navigation(pages, page.route)));

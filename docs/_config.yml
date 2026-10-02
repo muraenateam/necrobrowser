@@ -1,4 +1,6 @@
 title: Necrobrowser
+# Mirror of the "version" field in package.json (checked by scripts/check-docs.js).
+version: "1.0.0"
 plugins:
   - jekyll-relative-links
 relative_links:

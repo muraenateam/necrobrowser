@@ -89,6 +89,13 @@ for (const parent of metadata.filter(item => metadata.some(child => child.attrib
 }
 for (const file of walk(testingRoot, file => file.endsWith('.json'))) checkPayload(file);
 
+const configText = fs.readFileSync(path.join(docsRoot, '_config.yml'), 'utf8');
+const configVersion = (configText.match(/^version:\s*["']?([^"'\n]+?)["']?\s*$/m) || [])[1];
+const packageVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+if (configVersion !== packageVersion) {
+    errors.push(`docs/_config.yml: version (${configVersion === undefined ? 'missing' : configVersion}) does not match package.json (${packageVersion})`);
+}
+
 if (errors.length) {
     console.error(errors.join('\n'));
     process.exitCode = 1;
