@@ -1,56 +1,50 @@
 {
   "name": "necrobrowser",
-  "version": "1.0",
-  "description": "Necrobrowser is a browser instrumentation microservice written in NodeJS: it uses the Puppeteer library to control instances of Chrome or Firefox in headless and GUI mode.",
+  "version": "1.0.0",
+  "description": "Browser task orchestration service with isolated Puppeteer workers.",
   "main": "necrobrowser.js",
   "scripts": {
-    "test": "jest",
+    "start": "node necrobrowser.js",
+    "test": "jest --runInBand",
+    "test:unit": "jest --runInBand test/unit.test.js",
+    "test:integration": "jest --runInBand test/integration.test.js",
+    "test:coverage": "jest --coverage --runInBand",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "test:api": "jest test/api.test.js",
-    "test:tasks": "jest test/tasks.test.js",
-    "cli": "node necrocli.js"
+    "test:all": "npm test && npm run check && npm run test:e2e",
+    "test:all:external": "npm run test:all && npm run test:e2e:external",
+    "cli": "node necrocli.js",
+    "test:e2e": "NECRO_RUN_BROWSER_TESTS=1 NODE_OPTIONS=--experimental-vm-modules jest --config jest.e2e.config.js --runInBand",
+    "test:e2e:external": "NECRO_RUN_BROWSER_TESTS=1 NECRO_EXTERNAL_SMOKE=1 NODE_OPTIONS=--experimental-vm-modules jest --config jest.e2e.config.js --runInBand",
+    "check": "node --check necrobrowser.js && node --check db/db.js && node --check lib/app.js && node --check lib/navigation-policy.js && node --check lib/cookie-jar.js && node --check lib/rate-limit.js && node --check lib/audit.js && node --check browser/pool.js && node --check puppeteer/cluster.js && node --check tasks/loader.js && node --check test/browser.e2e.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/muraenateam/necrobrowser.git"
   },
   "author": "Muraena Team",
-  "license": "BSD 3-Clause",
+  "license": "BSD-3-Clause",
+  "engines": {
+    "node": ">=22"
+  },
   "bugs": {
     "url": "https://github.com/muraenateam/necrobrowser/issues"
   },
-  "homepage": "https://necrobrowser.phishing.click",
   "dependencies": {
     "chalk": "^4.1.2",
     "commander": "^14.0.3",
-    "crypto": "^1.0.1",
     "express": "^4.21.2",
-    "jest": "^29.7.0",
-    "morgan": "^1.10.1",
-    "node-eval": "^2.0.0",
-    "node-telegram-bot-api": "^0.66.0",
-    "puppeteer": "^24.31.0",
-    "redis": "^4.7.1",
-    "shortid": "^2.2.16",
+    "morgan": "^1.12.1",
+    "node-telegram-bot-api": "^2.1.0",
+    "puppeteer": "^25.12.0",
+    "better-sqlite3": "^13.0.3",
+    "shortid": "^2.2.17",
     "sshpk": "^1.18.0",
-    "toml": "^3.0.0",
-    "typescript": "^5.9.3",
-    "ua-parser-js": "^1.0.37"
+    "toml": "^5.0.0",
+    "totp-generator": "^2.0.0",
+    "ua-parser-js": "^1.0.41"
   },
   "devDependencies": {
-    "chalk": "^4.1.2",
-    "express": "^4.21.2",
     "jest": "^29.7.0",
-    "morgan": "^1.10.1",
-    "node-eval": "^2.0.0",
-    "puppeteer-cluster": "github:muraenateam/puppeteer-cluster#v1.0.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "redis": "^4.7.1",
-    "shortid": "^2.2.16",
-    "toml": "^3.0.0",
-    "totp-generator": "^2.0.0",
     "typescript": "^5.9.3"
   }
 }

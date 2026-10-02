@@ -10,12 +10,10 @@ has_toc: true
 # Installation
 
 ## Requirements
-- [NodeJS + [npm](https://www.npmjs.com/get-npm)
-- [Redis](https://redis.io/)
-- [Chromium](https://www.chromium.org/getting-involved/download-chromium) 
+- [NodeJS + npm](https://www.npmjs.com/get-npm)
+- [Chromium](https://www.chromium.org/getting-involved/download-chromium)
 
 ## Steps
-
 
 Clone the repository and install the dependencies:
 ```bash
@@ -24,29 +22,23 @@ cd necrobrowser
 npm install
 ```
 
-NecroBrowser relies on Redis for data persistence. Redis is expected at tcp://127.0.0.1:6379 (no SSL, no auth).
-Configure Redis and start it:
-```bash
-redis-server --daemonize yes
-redis-cli ping
-```
+NecroBrowser stores task state, session cookies, and extracted results in local SQLite at `./necro.db` by default. Configure another path under `[database]` in `config.toml` or set `NECRO_DB_PATH`. The database contains sensitive session data: keep its directory private, preserve file mode `0600`, and protect backups.
 
-Setup the environment: create two directories: `profiles` and `extrusion` in the root of the project. 
-These will be used to store segregated browser profiles and looted data.
+Create browser profile and extraction directories:
 ```bash
 mkdir profiles
 mkdir extrusion
 ```
 
-Once the installation is done, you can start (possibly in a screen/tmux) the tool with:
+Start the service:
 ```bash
 node necrobrowser.js
 ```
 
+SQLite is local to one NecroBrowser process. Local installations enable HTTP/private-network navigation by default; set `allowHttp = false` and/or `allowPrivateNetworks = false` for hardened deployments. Multiple independent service replicas should use separate databases and coordination outside this application.
 
 ## Quick check
 
-You can check if everything is working by running the following command:
 ```bash
 curl -X POST "http://127.0.0.1:3000/instrument" \
      -H "Content-Type: application/json" \
@@ -60,4 +52,4 @@ curl -X POST "http://127.0.0.1:3000/instrument" \
         }'
 ```
 
-This will instruct NecroBrowser to take a screenshot of `https://example.com/` and store it in the `extrusion` directory.
+This instructs NecroBrowser to take a screenshot of `https://example.com/` and store it in `extrusion`. To replay a Cookie-Editor jar, include it as the request's `cookies` array; NecroBrowser validates it, stores it in protected SQLite, and injects it before task navigation. Never expose this API publicly: cookies are session credentials.

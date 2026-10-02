@@ -22,5 +22,11 @@ module.exports = async function() {
     }
   }
 
+  if (global.__NECROBROWSER_DB__) {
+    for (const suffix of ['', '-wal', '-shm']) {
+      try { require('fs').rmSync(`${global.__NECROBROWSER_DB__}${suffix}`, { force: true }); } catch (_) { /* already absent */ }
+    }
+  }
+
   console.log('Global teardown complete');
 };

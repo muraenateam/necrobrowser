@@ -85,7 +85,12 @@ The POST returns immediately the queued job id as the following, while the task 
 }
 ```
 
-The `necroId` can be used to poll the task details via GET `/instrument/<necroId>` until the task status is completed.
+The `necroId` can be used to poll the task details via GET `/instrument/<necroId>` until the task status is completed. The submitted cookie jar is validated before queueing, persisted in protected local SQLite, and loaded into the browser before the task's first navigation. Cookie values are never returned by the API.
+
+`POST /cookie-jar/dry-run` remains diagnostics-only: it validates and summarizes a jar but never stores cookies, starts a browser, or queues a task.
+
+Cookie loading happens through normal `/instrument` jobs; there is no separate cookie-loading endpoint.
+
 Note that since the instrumentation activity is asynchronous, when long-running tasks save intermediate data to the database,
 that data is immediately accessible from the API. So, depending on your needs, you might want to poll less or more frequently
 the instrument handler depending on your needs.
@@ -118,8 +123,7 @@ To quickly export all page cookies from a logged session, on Chrome the
 [EditThisCookie](https://chrome.google.com/webstore/detail/editthiscookie/fngmhnnpilhplaeedifhccceomclgfbg) extension 
 can be used. This is useful when developing/testing new necro modules.
 
-However, in real-world scenarios, when NecroBrowser is used together with Muraena,
-the victim credentials and full cookiejar are automatically received from the Muraena reverse proxy.
+When NecroBrowser is used together with Muraena, the victim credentials and full cookie jar are sent in the request. If a task uses `params.trackers`, NecroBrowser stores supplied credentials locally under `victim:<tracker>` for later credential-dependent task steps. The SQLite database contains sensitive values and must be protected.
 
 
 ### UserAgent Spoofing (Browser Fingerprint Matching)

@@ -1,285 +1,291 @@
-const redis = require("redis");
-const shortid = require("shortid");
-const c = require('chalk');
-const log = require('./../lib/logger');
+'use strict';
 
-// Create a singleton Redis client
-let client = null;
-let isConnecting = false;
+const fs = require('fs');
+const path = require('path');
+const shortid = require('shortid');
+const Database = require('better-sqlite3');
 
-async function getClient() {
-    if (!client || !client.isOpen) {
-        // Prevent multiple simultaneous connection attempts
-        if (isConnecting) {
-            // Wait for the connection to complete
-            await new Promise(resolve => setTimeout(resolve, 100));
-            return getClient();
-        }
+let database = null;
+let databasePath = null;
 
-        isConnecting = true;
+const SCHEMA = `
+    CREATE TABLE IF NOT EXISTS tasks (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        task_name TEXT NOT NULL DEFAULT '',
+        cookies TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL,
+        reason TEXT,
+        params TEXT NOT NULL DEFAULT '{}',
+        user_agent TEXT NOT NULL DEFAULT '',
+        results TEXT,
+        created_at TEXT NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        keepalive TEXT,
+        last_keepalive TEXT
+    );
 
-        try {
-            client = redis.createClient({
-                socket: {
-                    reconnectStrategy: (retries) => {
-                        if (retries > 10) {
-                            console.error(c.red('[Redis] Max reconnection attempts reached'));
-                            return new Error('Redis max reconnection attempts reached');
-                        }
-                        const delay = Math.min(retries * 100, 3000);
-                        console.log(c.yellow(`[Redis] Reconnecting in ${delay}ms... (attempt ${retries})`));
-                        return delay;
-                    }
-                }
-            });
+    CREATE INDEX IF NOT EXISTS idx_tasks_status_keepalive
+        ON tasks (status, keepalive);
 
-            // Error handler - prevents crashes on Redis errors
-            client.on("error", function (error) {
-                log.LogError('REDIS ERROR DETECTED', {
-                    'Error': error.message,
-                    'Time': new Date().toISOString()
-                });
-            });
+    CREATE TABLE IF NOT EXISTS extruded_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id TEXT NOT NULL,
+        entry_key TEXT NOT NULL,
+        encoded TEXT NOT NULL,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    );
 
-            // Connection events for better visibility
-            client.on("ready", function () {
-                log.LogSuccess('[Redis] Client ready and connected');
-            });
+    CREATE INDEX IF NOT EXISTS idx_extruded_task
+        ON extruded_data (task_id, id);
 
-            client.on("reconnecting", function () {
-                log.LogWarning('[Redis] Client reconnecting...');
-            });
+    CREATE TABLE IF NOT EXISTS credentials (
+        lookup_key TEXT NOT NULL,
+        ordinal INTEGER NOT NULL,
+        payload TEXT NOT NULL,
+        PRIMARY KEY (lookup_key, ordinal)
+    );
+`;
 
-            client.on("end", function () {
-                log.LogWarning('[Redis] Connection closed');
-            });
-
-            await client.connect();
-            isConnecting = false;
-        } catch (error) {
-            isConnecting = false;
-            console.error(c.red('[Redis] Failed to connect:'), error.message);
-            throw error;
-        }
-    }
-    return client;
+function resolveDatabasePath(requestedPath) {
+    const configuredPath = process.env.NECRO_DB_PATH || requestedPath || './necro.db';
+    if (configuredPath === ':memory:') return configuredPath;
+    return path.resolve(configuredPath);
 }
 
-exports.CheckRedis = async function () {
-    try {
-        const checkRedis = await getClient();
-        await checkRedis.ping();
-        console.log("Redis connection successful");
-    } catch (error) {
-        console.error("error: cannot connect to Redis at tcp://127.0.0.1:6379\nexiting now...");
-        process.exit(1);
+function protectDatabaseFile(filePath) {
+    if (filePath === ':memory:') return;
+    for (const candidate of [filePath, `${filePath}-wal`, `${filePath}-shm`]) {
+        try { fs.chmodSync(candidate, 0o600); } catch (_) { /* file may not exist yet */ }
     }
 }
-// redis keyspace:
-// task:<type>:<short-id> ...
-// task:github:PPBqWA9
-// related cookies are another HMSET like:
-// task:<type>:<short-id>
-exports.AddTask = async function (name, task, cookies, taskName, params, userAgent) {
-    const redisClient = await getClient();
-    const id = shortid.generate();
 
-    const key = `task:${task}:${id}`;
-    console.log(`[DB] AddTask: Creating task ${key} with name="${name}", status="queued", cookies_length=${cookies.length}`);
+function openDatabase(requestedPath) {
+    const nextPath = resolveDatabasePath(requestedPath);
+    if (database && databasePath === nextPath) return database;
+    if (database) {
+        database.close();
+        database = null;
+        databasePath = null;
+    }
 
-    const fields = {
-        "name": name,
-        "cookies": cookies,
-        "status": "queued",
-        "type": task,
-        "taskName": taskName || '',
-        "params": JSON.stringify(params || {}),
-        "userAgent": userAgent || '',
-        "createdAt": new Date().toISOString()
+    if (nextPath !== ':memory:') {
+        const parent = path.dirname(nextPath);
+        const parentExisted = fs.existsSync(parent);
+        fs.mkdirSync(parent, { recursive: true, mode: 0o700 });
+        if (!parentExisted) {
+            try { fs.chmodSync(parent, 0o700); } catch (_) { /* best effort on non-POSIX filesystems */ }
+        }
+    }
+
+    const nextDatabase = new Database(nextPath);
+    nextDatabase.pragma('journal_mode = WAL');
+    nextDatabase.pragma('synchronous = FULL');
+    nextDatabase.pragma('foreign_keys = ON');
+    nextDatabase.pragma('busy_timeout = 5000');
+    nextDatabase.exec(SCHEMA);
+    protectDatabaseFile(nextPath);
+    database = nextDatabase;
+    databasePath = nextPath;
+    return database;
+}
+
+function getDatabase() {
+    return database || openDatabase();
+}
+
+function mapTask(row) {
+    if (!row) return null;
+    const task = {
+        _key: row.id,
+        name: row.name,
+        type: row.type,
+        taskName: row.task_name,
+        cookies: row.cookies,
+        status: row.status,
+        params: row.params,
+        userAgent: row.user_agent,
+        createdAt: row.created_at,
+        attempts: String(row.attempts)
     };
-
-    // Auto-enable keepalive if params has fixSession
-    if (params && params.fixSession) {
-        fields["keepalive"] = "enabled";
-    }
-
-    await redisClient.hSet(key, fields);
-
-    console.log(`[DB] AddTask: Task ${key} successfully created in Redis`);
-    return key;
+    if (row.reason !== null) task.reason = row.reason;
+    if (row.results !== null) task.results = row.results;
+    if (row.keepalive !== null) task.keepalive = row.keepalive;
+    if (row.last_keepalive !== null) task.lastKeepalive = row.last_keepalive;
+    return task;
 }
 
-exports.AddExtrudedData = async function (key, entryKey, entryValue) {
-    const redisClient = await getClient();
-    const id = shortid.generate();
-    let dataKey = `${key}:extruded`
-    let dataKeyId = `${dataKey}:${id}`
+function taskRow(key) {
+    return getDatabase().prepare('SELECT * FROM tasks WHERE id = ?').get(String(key));
+}
 
-    await redisClient.rPush(dataKey, dataKeyId);
-    //console.log(`rpush in ${dataKey} of ${dataKeyId}`);
+async function CheckDatabase({ path: requestedPath } = {}) {
+    openDatabase(requestedPath);
+    return true;
+}
 
-    await redisClient.hSet(dataKeyId, {
-        "url": entryKey,
-        "encoded": entryValue
+async function RecoverInterruptedTasks() {
+    getDatabase().prepare(`
+        UPDATE tasks
+        SET status = 'error', reason = ?
+        WHERE status = 'running'
+    `).run('Interrupted by process restart');
+}
+
+async function CloseDatabase() {
+    if (!database) return;
+    const current = database;
+    database = null;
+    databasePath = null;
+    try { current.pragma('wal_checkpoint(TRUNCATE)'); } catch (_) { /* close still releases the database */ }
+    current.close();
+}
+
+async function AddTask(name, task, cookies, taskName, params, userAgent, credentialsKey, credentials) {
+    const id = `task:${task}:${shortid.generate()}`;
+    const taskParams = params || {};
+    const db = getDatabase();
+    const insert = db.transaction(() => {
+        db.prepare(`
+            INSERT INTO tasks (
+                id, name, type, task_name, cookies, status, params, user_agent,
+                created_at, attempts, keepalive
+            ) VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?, 0, ?)
+        `).run(
+            id,
+            String(name || ''),
+            String(task || ''),
+            String(taskName || ''),
+            String(cookies || ''),
+            JSON.stringify(taskParams),
+            String(userAgent || ''),
+            new Date().toISOString(),
+            taskParams.fixSession ? 'enabled' : null
+        );
+        if (credentialsKey && Array.isArray(credentials)) replaceCredentials(credentialsKey, credentials);
     });
-    //console.log(`hmset on ${dataKeyId}`);
+    insert();
+    return id;
 }
 
-exports.UpdateTaskStatus = async function (key, status) {
-    const redisClient = await getClient();
-    let currentStatus = await redisClient.hGet(key, "status");
-    await redisClient.hSet(key, 'status', status);
-    console.log(`[${key}] status (${currentStatus}) changed to -> ${status}`)
+async function AddExtrudedData(key, entryKey, entryValue) {
+    getDatabase().prepare(`
+        INSERT INTO extruded_data (task_id, entry_key, encoded)
+        VALUES (?, ?, ?)
+    `).run(String(key), String(entryKey), String(entryValue));
 }
 
-exports.UpdateTaskStatusWithReason = async function (key, status, reason) {
-    const redisClient = await getClient();
-    let currentStatus = await redisClient.hGet(key, "status");
-    await redisClient.hSet(key, 'status', status);
-    console.log(`[${key}] status (${currentStatus}) changed to -> ${status}`)
-
-    // used to add error details if any, or any other info to decorate status
-    let currentReason = await redisClient.hGet(key, "reason");
-    await redisClient.hSet(key, 'reason', reason);
-    console.log(`[${key}] reason (${currentReason}) changed to -> ${reason}`)
+async function UpdateTaskStatus(key, status) {
+    getDatabase().prepare('UPDATE tasks SET status = ? WHERE id = ?').run(String(status), String(key));
 }
 
-// Store task results as plain JSON (for tasks that need clean JSON responses)
-exports.SetTaskResults = async function (key, results) {
-    const redisClient = await getClient();
-    const resultsJson = JSON.stringify(results);
-    await redisClient.hSet(key, 'results', resultsJson);
-    console.log(`[${key}] results set (${results.length} items)`);
+async function UpdateTaskStatusWithReason(key, status, reason) {
+    getDatabase().prepare('UPDATE tasks SET status = ?, reason = ? WHERE id = ?')
+        .run(String(status), String(reason || ''), String(key));
 }
 
-exports.GetTask = async function (key) {
-    const redisClient = await getClient();
-    let status = await redisClient.hGet(key, "status");
+async function SetTaskResults(key, results) {
+    getDatabase().prepare('UPDATE tasks SET results = ? WHERE id = ?')
+        .run(JSON.stringify(results), String(key));
+}
 
-    console.log(`[DB] GetTask: Retrieving task ${key}, status="${status}"`);
+async function GetTask(key) {
+    const row = taskRow(key);
+    if (!row) return [null, null];
+    if (row.status === 'queued') return ['queued', null];
+    if (row.status === 'error') return ['error', row.reason];
 
-    // todo implement as switch
-    if (status === "queued") {
-        console.log(`[DB] GetTask: Task ${key} is still queued`);
-        return ["queued", null]
-    } else if (status === "error") {
-        let error = await redisClient.hGet(key, "error");
-        let reason = await redisClient.hGet(key, "reason");
-        console.log(`[DB] GetTask: Task ${key} has error, reason="${reason}"`);
-        return ["error", reason]
-    } else {
-        // Check for direct results field first (used by tasks like emailverify)
-        let results = await redisClient.hGet(key, "results");
-        if (results) {
-            try {
-                let parsedResults = JSON.parse(results);
-                console.log(`[DB] GetTask: Task ${key} has direct results (${parsedResults.length} items)`);
-                return [status, parsedResults];
-            } catch (e) {
-                console.log(`[DB] GetTask: Failed to parse results for ${key}: ${e}`);
-            }
-        }
+    if (row.results !== null) {
+        try { return [row.status, JSON.parse(row.results)]; } catch (_) { /* fall through to extruded data */ }
+    }
 
-        // Fall back to extruded data format
-        let dataKey = `${key}:extruded`;
+    const entries = getDatabase().prepare(`
+        SELECT entry_key AS url, encoded
+        FROM extruded_data
+        WHERE task_id = ?
+        ORDER BY id
+    `).all(String(key));
+    return [row.status, entries];
+}
 
-        try {
-            let extruded_entries = await redisClient.lRange(dataKey, 0, -1);
-            let result = []
-            for (let entryKey of extruded_entries) {
-                let value = await redisClient.hGetAll(entryKey);
-                result.push(value)
-            }
-
-            console.log(`[DB] GetTask: Task ${key} has ${result.length} extruded entries`);
-            return [status, result];
-        } catch (e) {
-            console.log(`[DB] GetTask error for ${key}:${e}`);
-            return ["error", e]
-        }
+async function GetCredentials(key) {
+    const rows = getDatabase().prepare(`
+        SELECT payload
+        FROM credentials
+        WHERE lookup_key = ?
+        ORDER BY ordinal
+    `).all(String(key));
+    try {
+        return rows.map(row => JSON.parse(row.payload));
+    } catch (_) {
+        return ['error', 'getcredentials'];
     }
 }
 
-exports.GetCredentials = async function (key) {
-    const redisClient = await getClient();
-    let status = await redisClient.hGet(key, "status");
-
-    // get number of creds
-    let _num = await redisClient.hGet(key, "creds_count");
-    let num = parseInt(_num);
-    let res = [];
-    for (let i = 0; i < num; i++) {
-        let _r = await redisClient.hGetAll(`${key}:creds:${i}`);
-        res.push(_r);
-    }
-    // todo implement as switch
-    if (res.length === num) {
-        return res;
-    } else {
-        console.log(`getcredentials error:`);
-        return ["error", "getcredentials"];
-    }
+function replaceCredentials(key, entries) {
+    const db = getDatabase();
+    db.prepare('DELETE FROM credentials WHERE lookup_key = ?').run(String(key));
+    const insert = db.prepare(`
+        INSERT INTO credentials (lookup_key, ordinal, payload)
+        VALUES (?, ?, ?)
+    `);
+    entries.forEach((value, ordinal) => insert.run(String(key), ordinal, JSON.stringify(value)));
 }
 
-exports.GetFullTask = async function (key) {
-    const redisClient = await getClient();
-    const data = await redisClient.hGetAll(key);
-    if (!data || Object.keys(data).length === 0) {
-        return null;
-    }
-    return data;
+async function SetCredentials(key, entries) {
+    const db = getDatabase();
+    const replace = db.transaction((lookupKey, values) => replaceCredentials(lookupKey, values));
+    replace(String(key), Array.isArray(entries) ? entries : []);
+}
+async function GetFullTask(key) {
+    return mapTask(taskRow(key));
 }
 
-exports.GetAllTasks = async function () {
-    const redisClient = await getClient();
-    const keys = await redisClient.keys('task:*');
-
-    // Filter to only top-level task keys (not :extruded or :creds sub-keys)
-    const taskKeys = keys.filter(k => {
-        const parts = k.split(':');
-        return parts.length === 3 && parts[0] === 'task';
-    });
-
-    const tasks = [];
-    for (const key of taskKeys) {
-        const data = await redisClient.hGetAll(key);
-        if (data && data.status) {
-            data._key = key;
-            tasks.push(data);
-        }
-    }
-    return tasks;
+async function GetAllTasks() {
+    const rows = getDatabase().prepare('SELECT * FROM tasks ORDER BY created_at, id').all();
+    return rows.map(mapTask);
 }
 
-exports.UpdateTaskCookies = async function (key, b64Cookies) {
-    const redisClient = await getClient();
-    await redisClient.hSet(key, 'cookies', b64Cookies);
-    console.log(`[${key}] cookies updated (${b64Cookies.length} bytes b64)`);
+async function UpdateTaskCookies(key, b64Cookies) {
+    getDatabase().prepare('UPDATE tasks SET cookies = ? WHERE id = ?')
+        .run(String(b64Cookies || ''), String(key));
 }
 
-exports.UpdateTaskKeepalive = async function (key, enabled) {
-    const redisClient = await getClient();
-    await redisClient.hSet(key, 'keepalive', enabled ? 'enabled' : 'disabled');
-    console.log(`[${key}] keepalive set to ${enabled ? 'enabled' : 'disabled'}`);
+async function UpdateTaskKeepalive(key, enabled) {
+    getDatabase().prepare('UPDATE tasks SET keepalive = ? WHERE id = ?')
+        .run(enabled ? 'enabled' : 'disabled', String(key));
 }
 
-exports.UpdateTaskLastKeepalive = async function (key) {
-    const redisClient = await getClient();
-    const ts = new Date().toISOString();
-    await redisClient.hSet(key, 'lastKeepalive', ts);
-    console.log(`[${key}] lastKeepalive updated to ${ts}`);
+async function UpdateTaskLastKeepalive(key) {
+    getDatabase().prepare('UPDATE tasks SET last_keepalive = ? WHERE id = ?')
+        .run(new Date().toISOString(), String(key));
 }
 
-exports.GetKeepAliveTasks = async function () {
-    const allTasks = await exports.GetAllTasks();
-    return allTasks.filter(t => {
-        if (t.keepalive !== 'enabled') return false;
-        if (t.status !== 'completed' && t.status !== 'running') return false;
-        try {
-            const params = JSON.parse(t.params || '{}');
-            return !!params.fixSession;
-        } catch (e) {
-            return false;
-        }
+async function GetKeepAliveTasks() {
+    const allTasks = await GetAllTasks();
+    return allTasks.filter(task => {
+        if (task.keepalive !== 'enabled' || !['completed', 'running'].includes(task.status)) return false;
+        try { return !!JSON.parse(task.params || '{}').fixSession; } catch (_) { return false; }
     });
 }
+
+module.exports = {
+    CheckDatabase,
+    RecoverInterruptedTasks,
+    CloseDatabase,
+    AddTask,
+    AddExtrudedData,
+    UpdateTaskStatus,
+    UpdateTaskStatusWithReason,
+    SetTaskResults,
+    GetTask,
+    GetCredentials,
+    SetCredentials,
+    GetFullTask,
+    GetAllTasks,
+    UpdateTaskCookies,
+    UpdateTaskKeepalive,
+    UpdateTaskLastKeepalive,
+    GetKeepAliveTasks
+};

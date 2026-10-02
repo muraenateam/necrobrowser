@@ -24,18 +24,18 @@ echo -e "${YELLOW}Target: Debian 13 (Trixie)${NC}"
 echo ""
 
 # Update package lists
-echo -e "${GREEN}[1/6] Updating package lists...${NC}"
+echo -e "${GREEN}[1/5] Updating package lists...${NC}"
 apt-get update
 
-# Install Node.js 18.x (LTS)
-echo -e "${GREEN}[2/6] Installing Node.js 18.x...${NC}"
+# Install Node.js 22.x (required by current Puppeteer and better-sqlite3)
+echo -e "${GREEN}[2/5] Installing Node.js 22.x...${NC}"
 if ! command -v node &> /dev/null; then
     # Install Node.js from NodeSource repository
     apt-get install -y ca-certificates curl gnupg
     mkdir -p /etc/apt/keyrings
     curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
 
-    NODE_MAJOR=18
+    NODE_MAJOR=22
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
 
     apt-get update
@@ -47,17 +47,8 @@ else
     echo -e "${YELLOW}Node.js already installed: $(node --version)${NC}"
 fi
 
-# Install Redis server
-echo -e "${GREEN}[3/6] Installing Redis server...${NC}"
-apt-get install -y redis-server
-
-# Enable and start Redis
-systemctl enable redis-server
-systemctl start redis-server
-echo -e "${GREEN}Redis installed and started${NC}"
-
 # Install Chromium and all required dependencies for Puppeteer
-echo -e "${GREEN}[4/6] Installing Chromium and dependencies...${NC}"
+echo -e "${GREEN}[3/5] Installing Chromium and dependencies...${NC}"
 apt-get install -y \
     chromium \
     chromium-sandbox \
@@ -92,7 +83,7 @@ apt-get install -y \
 echo -e "${GREEN}Chromium installed: $(chromium --version)${NC}"
 
 # Install additional useful tools
-echo -e "${GREEN}[5/6] Installing additional tools (git, curl, etc.)...${NC}"
+echo -e "${GREEN}[4/5] Installing additional tools (git, curl, etc.)...${NC}"
 apt-get install -y \
     git \
     curl \
@@ -101,7 +92,7 @@ apt-get install -y \
     htop
 
 # Set up Puppeteer environment variables
-echo -e "${GREEN}[6/6] Configuring environment...${NC}"
+echo -e "${GREEN}[5/5] Configuring environment...${NC}"
 
 # Add environment variables to /etc/environment for system-wide use
 if ! grep -q "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD" /etc/environment; then
@@ -126,16 +117,17 @@ echo -e "${YELLOW}Next steps:${NC}"
 echo "1. Navigate to the Necrobrowser directory"
 echo "2. Install Node.js dependencies: npm install"
 echo "3. Configure config.toml (set root=true if running as root)"
-echo "4. Start Necrobrowser: node necrobrowser.js"
+echo "4. Protect the local SQLite database path"
+echo "5. Start Necrobrowser: node necrobrowser.js"
 echo ""
 echo -e "${YELLOW}Installed versions:${NC}"
 echo "  Node.js: $(node --version)"
 echo "  NPM: $(npm --version)"
 echo "  Chromium: $(chromium --version 2>/dev/null | head -n1)"
-echo "  Redis: $(redis-server --version)"
+echo "  SQLite: local file database (./necro.db)"
 echo ""
-echo -e "${YELLOW}Services:${NC}"
-echo "  Redis status: $(systemctl is-active redis-server)"
+echo -e "${YELLOW}Storage:${NC}"
+echo "  Database path: ./necro.db"
 echo ""
 echo -e "${GREEN}You may need to log out and log back in for environment variables to take effect${NC}"
 echo -e "${GREEN}Or run: source /etc/environment${NC}"

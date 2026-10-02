@@ -77,7 +77,7 @@ describe('Necrobrowser Task Execution', () => {
       });
     });
 
-    test('should store screenshot data in Redis', async () => {
+    test('should store screenshot data in SQLite', async () => {
       const response = await fetch(`${baseURL}/instrument/${taskId}`);
       const data = await response.json();
 

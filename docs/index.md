@@ -26,7 +26,7 @@ Necromantic session control
 
 ## About Necrobrowser
 
-Necrobrowser is a browser instrumentation microservice written in NodeJS. 
+Necrobrowser is a browser instrumentation microservice written in NodeJS.
 It uses the Puppeteer library to control instances of Chrome or Firefox in headless and GUI mode.
 
 The idea is to feed NecroBrowser with web sessions harvested during phishing campaigns
@@ -51,4 +51,4 @@ There are plenty of use cases, for instance:
 - automate interaction with target contact forms/chats to get target info
 
 In other words, NecroBrowser allows you to define your Puppeteer tasks in advance,
-which you can then call on a cluster of headless browsers, with persistence support via Redis.
+which you can then call on a cluster of headless browsers, with durable local SQLite persistence.

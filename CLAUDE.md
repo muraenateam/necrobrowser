@@ -2,32 +2,50 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Reliability rules
+
+- Browser ownership belongs to `browser/pool.js`; tasks must not close pool-owned pages, contexts, or browsers.
+- Default tests use dependency injection, local fixtures, and ephemeral ports. Do not restore fixed-port or public-network test setup.
+- Treat task failures as errors; do not swallow failures with `console.error` when operation is required.
+- Use `NECRO_DB_PATH` for isolated local database environments.
+- CloakBrowser/stealth integrations are intentionally not part of this runtime change.
+
+## Reliability rules
+
+- Browser ownership belongs to `browser/pool.js`; tasks must not close pool-owned pages, contexts, or browsers.
+- Default tests use dependency injection, local fixtures, and ephemeral ports. Do not restore fixed-port or public-network test setup.
+- Treat task failures as errors; do not swallow failures with `console.error` when operation is required.
+- Use `NECRO_DB_PATH` for isolated local database environments.
+- CloakBrowser/stealth integrations are intentionally not part of this runtime change.
+
 ## About Necrobrowser
 
-Necrobrowser is a browser instrumentation microservice written by antisnatchor in NodeJS that uses Puppeteer to control Chrome/Firefox instances in headless and GUI mode. It's designed for post-phishing automation, session hijacking, and browser-based red teaming tasks. The microservice exposes a REST API for queuing browser automation tasks that run in a managed cluster of browser instances with Redis-based persistence.
+Necrobrowser is a browser instrumentation microservice written by antisnatchor in NodeJS that uses Puppeteer to control Chrome/Firefox instances in headless and GUI mode. It's designed for post-phishing automation, session hijacking, and browser-based red teaming tasks. The microservice exposes a REST API for queuing browser automation tasks that run in a managed cluster of browser instances with local SQLite persistence.
 
 ## Core Architecture
 
 ### Main Components
 
-- **necrobrowser.js**: Entry point that initializes the Express server, Redis connection, Puppeteer cluster, and REST API endpoints
-- **puppeteer/cluster.js**: Manages the Puppeteer cluster lifecycle, configuration parsing (TOML), and concurrency models
-- **db/db.js**: Redis interface for task persistence, status tracking, and data extrusion
-- **tasks/loader.js**: Dynamically loads task modules from `tasks/*/necrotask.js` files and validates task type/name parameters
+- **necrobrowser.js**: Process entry point, runtime construction, HTTP startup, and graceful shutdown
+- **puppeteer/cluster.js**: Parses and validates TOML configuration for the browser pool
+- **browser/pool.js**: Owns bounded browser concurrency, isolation, timeouts, retries, metrics, and cleanup
+- **lib/app.js**: Dependency-injected Express application and API routes
+- **db/db.js**: SQLite interface for task persistence, status tracking, and data extrusion
+- **tasks/loader.js**: Loads task modules into a static registry and validates task type/name parameters
 - **tasks/helpers/necrohelp.js**: Shared utilities for screenshots, TOTP generation, and page manipulation
 
 ### Task System
 
-Tasks are organized in `tasks/<type>/necrotask.js` files (e.g., `office365`, `github`, `gsuite`, `generic`, `atlassian`). Each task exports async functions that receive `{ page, data: [taskId, cookies, params] }` or `{ browser, page, data: [...] }`. The loader validates task types/names are alphanumeric before eval() execution (line necrobrowser.js:111).
+Active tasks are organized in `tasks/<type>/necrotask.js` files (e.g., `office365`, `github`, `gsuite`, `generic`, `atlassian`). Each task exports async functions that receive `{ page, data: [taskId, cookies, params] }`; the pool owns page, context, and browser lifecycle. Optional local pre-migration copies live under ignored `custom.local/` and are never loaded. The loader builds a static registry and dispatches functions directly; no dynamic evaluation.
 
 Tasks interact with the browser session through Puppeteer's `page` object and update their status via `db.UpdateTaskStatus(taskId, "running"|"completed"|"error")`.
 
 ### Data Flow
 
 1. Client POSTs to `/instrument` with task type/name, cookies, and params
-2. Task queued in Redis with generated ID (`task:<type>:<shortid>`)
+2. Task queued in local SQLite with generated ID (`task:<type>:<shortid>`)
 3. Cluster worker picks up task, sets cookies, executes automation
-4. Task saves extruded data to Redis via `db.AddExtrudedData()`
+4. Task saves extruded data to SQLite via `db.AddExtrudedData()`
 5. Client polls `/instrument/:id` to retrieve status and results
 
 ### Concurrency Models
@@ -49,19 +67,20 @@ All configuration is in `config.toml`:
 
 ### Starting Necrobrowser
 ```bash
-node necrobrowser.js
-
-# With verbose cluster logging:
-DEBUG='puppeteer-cluster:*' node necrobrowser.js
+npm start
 ```
 
-### Testing Tasks
-Example JSON payloads are in `testing/` directory. Use curl or similar to POST to `http://localhost:3000/instrument`:
+Service binds to `127.0.0.1:3000` by default. Set `NECRO_DB_PATH` for isolated environments. Stop with `SIGTERM` or `SIGINT` for graceful browser/database cleanup.
+
+### Testing
 ```bash
-curl -X POST http://localhost:3000/instrument \
-  -H "Content-Type: application/json" \
-  -d @testing/office365.addAuthApp.json
+npm test
+npm run test:unit
+npm run test:integration
+npm run check
 ```
+
+Default tests use dependency injection, local fixtures, and ephemeral ports. Legacy public-network/browser tests are not part of the default suite.
 
 ### API Endpoints
 - `GET /` - Cluster status and queue information
@@ -107,16 +126,18 @@ Install with `npm install`. Key dependencies:
 - `puppeteer` (v19.2.2) - Browser automation
 - `@muraenateam/puppeteer-cluster` - Custom cluster manager (devDep, used in production)
 - `puppeteer-extra` + `puppeteer-extra-plugin-stealth` - Stealth mode
-- `redis` (v3.0.2) - Task persistence
+- `better-sqlite3` - Local task/session persistence
 - `express` - REST API
 - `toml` - Config parsing
 - `totp-generator` - For 2FA tasks
 
-## Redis Schema
+## SQLite Storage
 
-- Task: `task:<type>:<id>` → HMSET with `name`, `cookies` (base64 JSON), `status`, optional `reason`
-- Extruded data list: `task:<type>:<id>:extruded` → RPUSH of data keys
-- Data entry: `task:<type>:<id>:extruded:<id>` → HMSET with `url`, `encoded` (base64)
+- Database path: `./necro.db` by default; override with `[database].path` or `NECRO_DB_PATH`.
+- `tasks` stores task metadata, status, cookies, parameters, results, and keepalive state.
+- `extruded_data` stores ordered task output.
+- `credentials` stores imported external credential lookups for tasks that need them.
+- Database contains session cookies. Keep its directory private and protect backups.
 
 ## Testing Examples
 

@@ -5,3 +5,6 @@ node_modules/
 dist/
 extrusion/
 profiles/
+necro.db
+necro.db-shm
+necro.db-wal

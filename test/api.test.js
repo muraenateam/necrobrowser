@@ -182,7 +182,7 @@ describe('Necrobrowser API Endpoints', () => {
       expect(response.status).toBe(200);
 
       const data = await response.json();
-      // Redis will return null status for non-existent key
+      // Database returns null status for non-existent key
       expect(data.status).toBeNull();
     });
   });

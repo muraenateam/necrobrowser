@@ -3,7 +3,7 @@
 const { program } = require('commander');
 const c = require('chalk');
 
-const DEFAULT_API = 'http://localhost:3000';
+const DEFAULT_API = 'http://127.0.0.1:3000';
 
 async function apiCall(method, path, apiBase) {
     const url = `${apiBase}${path}`;
@@ -33,7 +33,7 @@ program
     .name('necrocli')
     .description('NecroBrowser CLI - session hijacking management')
     .version('1.0.0')
-    .option('--host <url>', 'NecroBrowser API URL (default: http://localhost:3000, or NECRO_API env)');
+    .option('--host <url>', 'NecroBrowser API URL (default: http://127.0.0.1:3000, or NECRO_API env)');
 
 // stats command
 program

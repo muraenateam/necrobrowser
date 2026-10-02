@@ -30,8 +30,39 @@ There are plenty of use cases, for instance:
  - automate interaction with target contact forms/chats to get target info
 
 In other words, NecroBrowser allows you to define your Puppeteer tasks in advance,
-which you can then call on a cluster of headless browsers, with persistence support via Redis.
+which you can then call on a cluster of headless browsers, with durable local SQLite persistence.
 
+
+## Safe policy and cookie-jar dry run
+
+Service now includes safe validation infrastructure only. `POST /cookie-jar/dry-run` accepts an exported JSON cookie jar, validates shape, limits, domains, expiry, and policy, then returns redacted diagnostics. It never stores, applies, or replays cookies and never starts a browser task.
+
+`GET /healthz` returns sanitized liveness. Local runtime enables HTTP and private-network navigation by default because NecroBrowser is intended to run with local dependencies and fixtures. Set `allowPrivateNetworks = false` or `allowHttp = false` to restore blocking. Submitted Cookie-Editor jars are validated before queueing, stored in protected SQLite, normalized, and injected before each task's first navigation. `/cookie-jar/dry-run` remains validation-only.
+
+Cookie-jar dry run is not authenticated session replay. No public-site cookie injection or disruptive test mode is included.
+
+Navigation validation rejects non-HTTP(S) schemes and URL credentials. Active task modules use injected pool pages, normalized cookie jars, configured output paths, and propagated failures. Local pre-migration copies, when needed, belong under the ignored `custom.local/` folder; runtime never loads them.
+
+## Runtime architecture
+
+NecroBrowser separates HTTP routes, local SQLite persistence, and browser scheduling. `lib/app.js` exposes a dependency-injected Express app for fast API tests. `browser/pool.js` owns bounded concurrency, task timeouts, retries, profile isolation, metrics, and browser cleanup. `necrobrowser.js` is process entrypoint plus graceful shutdown wiring.
+
+Default runtime uses stock Puppeteer and stores task/session data in `./necro.db`. Browser work runs only through the pool; task modules must not close pool-owned pages or browsers. The database contains session cookies and must remain outside public directories with restrictive file permissions. SQLite persistence is local to one NecroBrowser process; it is not a distributed queue.
+
+## Testing
+
+Default suite is deterministic: no fixed port, detached server, public network, or global database cleanup.
+
+```bash
+npm test
+npm run test:unit
+npm run test:integration
+npm run check
+```
+
+Real browser tests should use local fixtures and temporary profile/output directories. Run the local end-to-end workflow with `npm run test:e2e`; it verifies cookie injection, cookie-gated UI, click/type interaction, form submission, screenshot creation, and SQLite result storage. The optional `npm run test:e2e:external` smoke test visits `example.com` and requires intentional network availability. External account workflows stay opt-in.
+
+The E2E suite never adds generic click/type automation to production task modules. It registers a test-only task so production behavior remains unchanged.
 
 ## Documentation
 

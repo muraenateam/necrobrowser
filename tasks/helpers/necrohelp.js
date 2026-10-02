@@ -1,5 +1,7 @@
 const db = require('../../db/db')
 const clusterLib = require('../../puppeteer/cluster')
+const fs = require('fs')
+const path = require('path')
 const totp = require("totp-generator");
 
 exports.ScreenshotFullPage = async function (page, taskId, url) {
@@ -10,7 +12,7 @@ exports.ScreenshotFullPage = async function (page, taskId, url) {
         await page.goto(url, { waitUntil: 'networkidle0', timeout: timeout }).then(async () => {
             screenshotData = await page.screenshot({ fullPage: true, encoding: "base64" });
             await db.AddExtrudedData(taskId, url, screenshotData)
-            await page.close();
+            // Page lifecycle belongs to browser pool.
         })
     } catch (e) {
         if (e.name === "TimeoutError") {
@@ -19,7 +21,7 @@ exports.ScreenshotFullPage = async function (page, taskId, url) {
             console.log(`[${taskId}] non-timeout error for ${url}:${e.message}`)
         }
 
-        await page.close();
+        throw e;
     }
 }
 
@@ -51,6 +53,7 @@ exports.ScreenshotCurrentPage = async function (page, taskId) {
             console.log(`[${taskId}] Screenshot succeeded on retry with clipped view`)
         } catch (retryError) {
             console.log(`[${taskId}] Screenshot retry also failed: ${retryError.message}`)
+            throw retryError;
         }
     }
 }
@@ -58,11 +61,11 @@ exports.ScreenshotCurrentPageToFS = async function (page, taskId, description = 
     let url = await page.url()
     console.log(`[${taskId}] taking screenshot of ${url} and saving to filesystem`)
 
-    const extrusionPath = clusterLib.GetConfig().platform.extrusionPath
-    const timestamp = Date.now()
     const sanitizedDesc = description.replace(/[^a-z0-9_-]/gi, '_').toLowerCase()
-    const filename = `screenshot_${taskId}_${sanitizedDesc}_${timestamp}.png`
-    const fullPath = `${extrusionPath}/${filename}`
+    const fullPath = exports.getOutputPath(
+        clusterLib.GetConfig(),
+        `screenshot_${taskId}_${sanitizedDesc}_${Date.now()}.png`
+    ) || '';
 
     try {
         // Wait for page to be fully rendered and check viewport
@@ -80,7 +83,7 @@ exports.ScreenshotCurrentPageToFS = async function (page, taskId, description = 
         await page.screenshot({ fullPage: true, path: fullPath })
         console.log(`[${taskId}] Screenshot saved to: ${fullPath}`)
 
-        // Also save to Redis
+        // Also save to SQLite
         let screenshotData = await page.screenshot({ fullPage: true, encoding: "base64" })
         await db.AddExtrudedData(taskId, `fs_${sanitizedDesc}`, screenshotData)
 
@@ -110,8 +113,7 @@ exports.ScreenshotFullPageToFS = async function (page, taskId, url, path) {
         await page.goto(url, { waitUntil: 'networkidle0', timeout: timeout }).then(async () => {
             let filename = url.split("/").pop() //take the last element in the url path
 
-            await page.screenshot({ fullPage: true, path: `${path}/${filename}-${Date.now()}.jpg` }).catch(console.error);
-            await page.close();
+            await page.screenshot({ fullPage: true, path: `${path}/${filename}-${Date.now()}.jpg` });
         })
     } catch (e) {
         if (e.name === "TimeoutError") {
@@ -120,37 +122,26 @@ exports.ScreenshotFullPageToFS = async function (page, taskId, url, path) {
             console.log(`[${taskId}] non-timeout error for ${url}:${e.message}`)
         }
 
-        await page.close();
+        throw e;
     }
 }
 
 exports.SetPageScaleFactor = async function (page, scaleFactor) {
     console.log(`setting page scaleFactor to ${scaleFactor}`)
     try {
-        if (page._client && typeof page._client.send === 'function') {
-            await page._client.send('Emulation.setPageScaleFactor', { pageScaleFactor: scaleFactor })
+        if (typeof page.target === 'function') {
+            const client = await page.target().createCDPSession();
+            await client.send('Emulation.setPageScaleFactor', { pageScaleFactor: scaleFactor })
         } else {
-            console.log(`page._client not available, skipping scaleFactor setting (this is normal in some browser modes)`)
+            console.log(`CDP session unavailable, skipping scaleFactor setting`)
         }
     } catch (error) {
         console.log(`Failed to set page scaleFactor: ${error.message}`)
     }
 }
 
-exports.IsAlphanumeric = async function (str) {
-    let code, i, len;
-    let isAlphanumeric = true;
-
-    for (i = 0, len = str.length; i < len; i++) {
-        code = str.charCodeAt(i);
-        if (!(code > 47 && code < 58) && // 0-9
-            !(code > 64 && code < 91) && // A-Z
-            !(code > 96 && code < 123)) { // a-z
-            isAlphanumeric = false
-        }
-    }
-
-    return isAlphanumeric
+exports.IsAlphanumeric = function (str) {
+    return typeof str === 'string' && /^[A-Za-z0-9]+$/.test(str);
 }
 
 // SetCookies sets cookies on a Puppeteer page with Puppeteer/CDP compatibility fixes.
@@ -160,33 +151,47 @@ exports.IsAlphanumeric = async function (str) {
 //  - Adding 'url' context for secure cookie setting from about:blank
 //  - Optional domain override (overrideDomain) to replace cookie domains with a target hostname,
 //    working around Puppeteer silently rejecting cookies whose domain doesn't match the url host.
+function normalizeCookie(cookie, options = {}) {
+    const normalized = { ...cookie };
+    if (normalized.expirationDate !== undefined && normalized.expires === undefined) {
+        normalized.expires = normalized.expirationDate;
+    }
+    delete normalized.expirationDate;
+    delete normalized.session;
+    delete normalized.hostOnly;
+    delete normalized.storeId;
+    delete normalized.id;
+
+    if (normalized.sameSite !== undefined) {
+        const sameSite = String(normalized.sameSite).toLowerCase();
+        if (sameSite === 'strict') normalized.sameSite = 'Strict';
+        else if (sameSite === 'lax') normalized.sameSite = 'Lax';
+        else if (sameSite === 'none') normalized.sameSite = 'None';
+        else delete normalized.sameSite;
+    }
+    if (options.overrideDomain) normalized.domain = options.overrideDomain;
+    if (options.url) normalized.url = options.url;
+    return normalized;
+}
+
 exports.SetCookies = async function (page, cookies, options = {}) {
     if (!cookies || cookies.length === 0) return;
+    await page.setCookie(...cookies.map(cookie => normalizeCookie(cookie, options)));
+}
 
-    const overrideDomain = options.overrideDomain || null;
-    const url = options.url || null;
-
-    const transformed = cookies.map(c => {
-        const tc = {...c};
-        // Puppeteer/CDP uses 'expires' not 'expirationDate' (legacy field name)
-        if (tc.expirationDate !== undefined && tc.expires === undefined) {
-            tc.expires = tc.expirationDate;
-            delete tc.expirationDate;
-        }
-        // Remove non-CDP fields
-        delete tc.session;
-        // Override domain if requested
-        if (overrideDomain) {
-            tc.domain = overrideDomain;
-        }
-        // Add url for proper secure cookie context
-        if (url) {
-            tc.url = url;
-        }
-        return tc;
-    });
-
-    await page.setCookie(...transformed);
+exports.SetCookieJar = async function (page, cookies = []) {
+    const groups = new Map();
+    for (const cookie of cookies) {
+        const explicitUrl = cookie.url ? new URL(cookie.url).origin + '/' : null;
+        const domain = String(cookie.domain || '').replace(/^\./, '').toLowerCase();
+        const groupKey = explicitUrl || (domain ? `https://${domain}/` : '');
+        if (!groupKey) continue;
+        if (!groups.has(groupKey)) groups.set(groupKey, []);
+        groups.get(groupKey).push(cookie);
+    }
+    for (const [url, group] of groups) {
+        await exports.SetCookies(page, group, { url });
+    }
 }
 
 exports.Totp = async function (secretKey) {
@@ -286,6 +291,71 @@ exports.ConfigureUserAgent = async function (page, userAgent, taskId) {
     }
 }
 
-exports.timedGoto = async function (page, url) {
- // TODO
+exports.getOutputDirectory = function (config) {
+    const outputPath = config?.paths?.extrusionPath || config?.platform?.extrusionPath;
+    if (!outputPath) throw new Error('Configured extrusion path is required');
+    fs.mkdirSync(outputPath, { recursive: true });
+    return path.resolve(outputPath);
+}
+
+exports.getOutputPath = function (config, ...segments) {
+    const root = exports.getOutputDirectory(config);
+    const safeSegments = segments.map(segment => String(segment).replace(/[^a-z0-9._-]/gi, '_'));
+    const candidate = path.resolve(root, ...safeSegments);
+    if (candidate !== root && !candidate.startsWith(`${root}${path.sep}`)) {
+        throw new Error('Output path must remain inside configured extrusion directory');
+    }
+    return candidate;
+}
+
+exports.setDownloadBehavior = async function (page, downloadPath) {
+    fs.mkdirSync(downloadPath, { recursive: true });
+    const context = typeof page.browserContext === 'function' ? page.browserContext() : null;
+    if (context && typeof context.setDownloadBehavior === 'function') {
+        await context.setDownloadBehavior({ behavior: 'allow', downloadPath });
+        return;
+    }
+    if (typeof page.target === 'function') {
+        const client = await page.target().createCDPSession();
+        await client.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath });
+        return;
+    }
+    throw new Error('Page does not support download configuration');
+}
+
+exports.runTask = async function (db, taskId, action) {
+    await db.UpdateTaskStatus(taskId, 'running');
+    try {
+        const result = await action();
+        if (result?.status === 'partial') {
+            await db.UpdateTaskStatusWithReason(taskId, 'partial', JSON.stringify(result.failures || []));
+        } else {
+            await db.UpdateTaskStatus(taskId, 'completed');
+        }
+        return result;
+    } catch (error) {
+        await db.UpdateTaskStatusWithReason(taskId, 'error', error.message || 'Task failed');
+        throw error;
+    }
+}
+
+exports.requireArray = function (value, name, { min = 1 } = {}) {
+    if (!Array.isArray(value) || value.length < min) {
+        throw new Error(`${name} must contain at least ${min} item${min === 1 ? '' : 's'}`);
+    }
+    return value;
+}
+
+exports.requireHttpUrl = function (value, name = 'URL') {
+    let parsed;
+    try { parsed = new URL(value); } catch (_) { throw new Error(`${name} must be a valid URL`); }
+    if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+        throw new Error(`${name} must use http or https without credentials`);
+    }
+    return parsed;
+}
+
+exports.timedGoto = async function (page, url, options = {}) {
+    exports.requireHttpUrl(url);
+    return page.goto(url, { waitUntil: 'networkidle2', timeout: 30000, ...options });
 }
