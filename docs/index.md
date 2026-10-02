@@ -51,6 +51,6 @@ Browser sessions, cookies, credentials, screenshots, profiles, and extracted fil
 ## Source of truth
 
 - Operational and user-facing documentation lives in this site under `docs/`.
-- Repository-local engineering instructions live in [`CLAUDE.md`](https://github.com/muraenateam/necrobrowser/blob/necro_spoof/CLAUDE.md).
-- Safe local payload template lives in [`testing/`](https://github.com/muraenateam/necrobrowser/tree/necro_spoof/testing); it contains no credentials.
+- Repository-local engineering instructions live in [`CLAUDE.md`](https://github.com/muraenateam/necrobrowser/blob/v2/CLAUDE.md).
+- Safe local payload template lives in [`testing/`](https://github.com/muraenateam/necrobrowser/tree/v2/testing); it contains no credentials.
 - Local preview instructions live in [`docs/README.md`](README.md).

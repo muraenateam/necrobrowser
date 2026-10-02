@@ -46,7 +46,6 @@ ignoreHTTPSErrors = false
     allowPrivateNetworks = true
     allowHttp = true
     requestsPerMinute = 60
-    burst = 20
 
 [cluster]
     # supported concurrency: browser, page, necro
