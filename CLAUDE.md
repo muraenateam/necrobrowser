@@ -6,15 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - Browser ownership belongs to `browser/pool.js`; tasks must not close pool-owned pages, contexts, or browsers.
 - Default tests use dependency injection, local fixtures, and ephemeral ports. Do not restore fixed-port or public-network test setup.
-- Treat task failures as errors; do not swallow failures with `console.error` when operation is required.
-- Use `NECRO_DB_PATH` for isolated local database environments.
-- CloakBrowser/stealth integrations are intentionally not part of this runtime change.
-
-## Reliability rules
-
-- Browser ownership belongs to `browser/pool.js`; tasks must not close pool-owned pages, contexts, or browsers.
-- Default tests use dependency injection, local fixtures, and ephemeral ports. Do not restore fixed-port or public-network test setup.
-- Treat task failures as errors; do not swallow failures with `console.error` when operation is required.
+- Treat task failures as errors; do not swallow failures when an operation is required.
 - Use `NECRO_DB_PATH` for isolated local database environments.
 - CloakBrowser/stealth integrations are intentionally not part of this runtime change.
 
@@ -53,7 +45,20 @@ Tasks interact with the browser session through Puppeteer's `page` object and up
 Configured in `config.toml` under `cluster.concurrency`:
 - **necro**: Full user-data-dir segregation, each task in its own browser with isolated profile
 - **browser**: Each task in its own browser instance
-- **page**: Each task in its own incognito page (single browser)
+- **page**: Each task in its own isolated context/page (single browser)
+
+### Browser sizing and visibility
+
+- `necro.headless = true` launches headless Chrome and applies `cluster.page.windowSize` as Puppeteer viewport dimensions.
+- `necro.headless = false` launches visible Chrome with `defaultViewport: null`; `cluster.page.windowSize` is passed as `--window-size=<width,height>`.
+- This sets configured window/viewport size; it does not guarantee operating-system maximize or monitor fullscreen.
+- Restart Necrobrowser after changing `config.toml` or runtime code. Existing processes do not reload configuration or modules.
+
+### Task status and output
+
+Tasks set `running` before browser work and must end as `completed`, `partial`, or `error`. Multi-URL tasks may return `partial` with per-URL failures. Screenshots and downloaded files must stay under configured `platform.extrusionPath`; use shared output helpers instead of hardcoded paths.
+
+Cookie-Editor exports are normalized before injection. Cookies without `domain` or `url` context are skipped because Puppeteer cannot apply them safely. Required navigation uses `necrohelp.timedGoto()` for HTTP(S) validation and bounded timeouts.
 
 ## Configuration
 
@@ -70,7 +75,9 @@ All configuration is in `config.toml`:
 npm start
 ```
 
-Service binds to `127.0.0.1:3000` by default. Set `NECRO_DB_PATH` for isolated environments. Stop with `SIGTERM` or `SIGINT` for graceful browser/database cleanup.
+Service binds to `127.0.0.1:3000` by default. Set `NECRO_DB_PATH` for isolated environments. Stop with `SIGTERM` or `SIGINT` for graceful browser/database cleanup. If port 3000 is already occupied, stop the old process before restarting; starting a second instance on same port fails with `EADDRINUSE`.
+
+For controlled external smoke tests, use no real accounts or cookies. Queue `generic.ScreenshotPages` with public URLs and an output path under configured extrusion directory, then poll `GET /instrument/:id` until terminal status and verify returned files exist. Keep this workflow opt-in; default tests use local fixtures.
 
 ### Testing
 ```bash
@@ -90,13 +97,13 @@ Default tests use dependency injection, local fixtures, and ephemeral ports. Leg
 
 ## Writing New Tasks
 
-1. Create `tasks/<tasktype>/necrotask.js` with exported async functions
-2. Each function signature: `async ({ page, data: [taskId, cookies, params] }) => { ... }`
-3. Update task status: `await db.UpdateTaskStatus(taskId, "running")` at start
-4. Set cookies: `await page.setCookie(...cookies)`
-5. Navigate and automate: Use Puppeteer API
-6. Save data: `await db.AddExtrudedData(taskId, key, base64data)` or save to `extrusionPath`
-7. Complete: `await db.UpdateTaskStatus(taskId, "completed")` or `"error"` with reason
+1. Create `tasks/<tasktype>/necrotask.js` with exported async functions.
+2. Use signature `async ({ page, data: [taskId, cookies, params] }) => { ... }`.
+3. Update task status to `running` at start and a terminal status (`completed`, `partial`, or `error`) before return/throw.
+4. Set cookies through `necrohelp.SetCookieJar(page, cookies)`; do not pass malformed context-free cookies to Puppeteer.
+5. Navigate required URLs through `necrohelp.timedGoto(page, url)`.
+6. Save data with `db.AddExtrudedData()` or under configured extrusion path using `necrohelp.getOutputPath()` or equivalent containment checks.
+7. Never create or close browser resources from task code. Pool owns page, context, browser, retries, timeout, and cleanup.
 
 Task type and name must be alphanumeric (validated by `necrohelp.IsAlphanumeric()`).
 
@@ -115,10 +122,10 @@ For Office365 tasks, both `.office365.com` AND `.login.microsoftonline.com` cook
 Office365 apps use iFrames heavily. The `--disable-features=site-per-process` Chrome flag is critical (cluster.js:127, 134). Access iFrame content via `page.$('#WebApplicationFrame')` then `contentFrame()` (office365/necrotask.js:193-194).
 
 ### UserAgent Spoofing
-The `ConfigureUserAgent()` helper in `tasks/helpers/necrohelp.js` configures browser fingerprint matching using the victim's original User-Agent. It parses the UA with `ua-parser-js` to set `navigator.platform`, mobile viewport, and uses CDP `Emulation.setUserAgentOverride` for full JavaScript-level consistency. Called in all task files after `setCookie()` and before the first `page.goto()`. The `userAgent` field is passed from Muraena via the `%%%USERAGENT%%%` template placeholder in the instrument profile.
+The `ConfigureUserAgent()` helper in `tasks/helpers/necrohelp.js` configures browser fingerprint matching using the supplied User-Agent. It parses the UA with `ua-parser-js` to set `navigator.platform`, mobile viewport, and uses CDP `Emulation.setUserAgentOverride` for JavaScript-level consistency. Call it before first navigation when task parameters provide a user agent. The `userAgent` field is passed from Muraena via the `%%%USERAGENT%%%` template placeholder in the instrument profile.
 
 ### Error Handling
-Tasks should use `.catch(console.error)` for non-critical operations and update status with `db.UpdateTaskStatusWithReason(taskId, "error", reason)` on fatal errors.
+Required operations must propagate failures. Update status with `db.UpdateTaskStatusWithReason(taskId, "error", reason)` on fatal errors. Use `partial` only when multi-item work produced some successful results and return per-item failures. Avoid `.catch(console.error)` for required navigation, screenshots, downloads, or persistence.
 
 ## Dependencies
 
