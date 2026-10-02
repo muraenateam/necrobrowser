@@ -38,6 +38,7 @@ exports.ParseConfig = (configPath = path.resolve(process.cwd(), 'config.toml')) 
     const cluster = parsed.cluster || {};
     const page = cluster.page || {};
     const necro = parsed.necro || {};
+    const cloak = necro.cloak || {};
     const supportedPlatforms = new Set(['freebsd', 'linux', 'darwin']);
     const supportedConcurrency = new Set(['browser', 'page', 'necro']);
 
@@ -45,6 +46,12 @@ exports.ParseConfig = (configPath = path.resolve(process.cwd(), 'config.toml')) 
     if (!supportedConcurrency.has(cluster.concurrency)) throw new Error(`Unsupported concurrency: ${cluster.concurrency}`);
     if (!Number.isInteger(cluster.poolSize) || cluster.poolSize < 1) throw new Error('cluster.poolSize must be a positive integer');
     if (!Number.isFinite(cluster.taskTimeout) || cluster.taskTimeout <= 0) throw new Error('cluster.taskTimeout must be positive');
+    if (cloak.enabled !== undefined && typeof cloak.enabled !== 'boolean') {
+        throw new Error('necro.cloak.enabled must be boolean');
+    }
+    if (cloak.humanize !== undefined && typeof cloak.humanize !== 'boolean') {
+        throw new Error('necro.cloak.humanize must be boolean');
+    }
     if (!page.windowSize) throw new Error('cluster.page.windowSize is required');
 
     const configDirectory = path.dirname(path.resolve(configPath));

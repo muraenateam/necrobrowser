@@ -49,6 +49,26 @@ NecroBrowser separates HTTP routes, local SQLite persistence, and browser schedu
 
 Default runtime uses stock Puppeteer and stores task/session data in `./necro.db`. Browser work runs only through the pool; task modules must not close pool-owned pages or browsers. The database contains session cookies and must remain outside public directories with restrictive file permissions. SQLite persistence is local to one NecroBrowser process; it is not a distributed queue.
 
+## Optional Cloakbrowser launcher
+
+For authorized lab/CTF targets, install dependencies with:
+
+```bash
+npm install
+```
+
+Set this opt-in configuration to use Cloakbrowser's Puppeteer adapter instead of stock Puppeteer:
+
+```toml
+[necro.cloak]
+enabled = true
+humanize = true
+```
+
+Restart Necrobrowser after changing configuration. `enabled = false` (default) keeps stock Puppeteer. Cloakbrowser resolves its own Chromium binary; `platform.puppetPath` applies to stock Puppeteer mode only. Cloakbrowser launch options can be supplied under `[necro.cloak]`, including `licenseKey`, `browserVersion`, `releaseChannel`, `locale`, `timezone`, `humanPreset`, `humanConfig`, `stealthArgs`, and `geoip`.
+
+Task `params.userAgent` remains explicit and is applied by `ConfigureUserAgent()` before navigation, overriding any launch-time default. Use only against systems and sessions you own or are authorized to test.
+
 ## Testing
 
 Default suite is deterministic: no fixed port, detached server, public network, or global database cleanup.

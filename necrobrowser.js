@@ -6,6 +6,7 @@ const clusterLib = require('./puppeteer/cluster');
 const loader = require('./tasks/loader');
 const db = require('./db/db');
 const { BrowserPool } = require('./browser/pool');
+const { createLauncherForConfig } = require('./puppeteer/launcher');
 const { createApp } = require('./lib/app');
 const log = require('./lib/logger');
 const { createNavigationPolicy } = require('./lib/navigation-policy');
@@ -67,10 +68,7 @@ async function createRuntime({ config, taskRegistry, database = db, pool } = {})
     const audit = createAudit({ sink: event => log.LogInfo(`[audit] ${JSON.stringify(event)}`) });
     const browserPool = pool || new BrowserPool({
         config: cfg,
-        launch: async options => {
-            const puppeteer = require('puppeteer');
-            return puppeteer.launch(options);
-        },
+        launch: await createLauncherForConfig(cfg),
         logger: console
     });
 

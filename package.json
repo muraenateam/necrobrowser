@@ -15,7 +15,7 @@
     "cli": "node necrocli.js",
     "test:e2e": "NECRO_RUN_BROWSER_TESTS=1 NODE_OPTIONS=--experimental-vm-modules jest --config jest.e2e.config.js --runInBand",
     "test:e2e:external": "NECRO_RUN_BROWSER_TESTS=1 NECRO_EXTERNAL_SMOKE=1 NODE_OPTIONS=--experimental-vm-modules jest --config jest.e2e.config.js --runInBand",
-    "check": "node --check necrobrowser.js && node --check db/db.js && node --check lib/app.js && node --check lib/navigation-policy.js && node --check lib/cookie-jar.js && node --check lib/rate-limit.js && node --check lib/audit.js && node --check browser/pool.js && node --check puppeteer/cluster.js && node --check tasks/loader.js && node --check test/browser.e2e.js"
+    "check": "node --check necrobrowser.js && node --check db/db.js && node --check lib/app.js && node --check lib/navigation-policy.js && node --check lib/cookie-jar.js && node --check lib/rate-limit.js && node --check lib/audit.js && node --check browser/pool.js && node --check puppeteer/cluster.js && node --check puppeteer/launcher.js && node --check tasks/loader.js && node --check test/browser.e2e.js"
   },
   "repository": {
     "type": "git",
@@ -30,13 +30,15 @@
     "url": "https://github.com/muraenateam/necrobrowser/issues"
   },
   "dependencies": {
+    "better-sqlite3": "^13.0.3",
     "chalk": "^4.1.2",
+    "cloakbrowser": "^0.5.11",
     "commander": "^14.0.3",
     "express": "^4.21.2",
     "morgan": "^1.12.1",
     "node-telegram-bot-api": "^2.1.0",
     "puppeteer": "^25.12.0",
-    "better-sqlite3": "^13.0.3",
+    "puppeteer-core": "^25.12.0",
     "shortid": "^2.2.17",
     "sshpk": "^1.18.0",
     "toml": "^5.0.0",

@@ -93,3 +93,13 @@ ignoreHTTPSErrors = false
     [necro.proxy]
         enabled = false
         url = "http://localhost:9999"
+
+    # Optional Cloakbrowser launcher for authorized lab/CTF targets.
+    # Install with: npm install cloakbrowser puppeteer-core
+    # Cloakbrowser resolves its own Chromium binary; platform.puppetPath
+    # continues to control stock Puppeteer mode only.
+    [necro.cloak]
+        enabled = true
+        humanize = true
+        # Optional wrapper settings: licenseKey, browserVersion, releaseChannel,
+        # locale, timezone, humanPreset, humanConfig, stealthArgs, geoip.

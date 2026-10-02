@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Default tests use dependency injection, local fixtures, and ephemeral ports. Do not restore fixed-port or public-network test setup.
 - Treat task failures as errors; do not swallow failures when an operation is required.
 - Use `NECRO_DB_PATH` for isolated local database environments.
-- CloakBrowser/stealth integrations are intentionally not part of this runtime change.
+- Cloakbrowser is opt-in under `necro.cloak.enabled`; stock Puppeteer remains default.
 
 ## About Necrobrowser
 
@@ -66,6 +66,7 @@ All configuration is in `config.toml`:
 - Platform settings: `platform.type` (freebsd/linux/darwin), `platform.puppetPath` (Chrome executable)
 - Cluster settings: `cluster.poolSize` (parallel browsers), `cluster.taskTimeout` (seconds), `cluster.concurrency`
 - Browser options: `necro.headless` (true/false), `cluster.page.windowSize`, `cluster.page.scaleFactor`
+- Optional Cloakbrowser: `necro.cloak.enabled`, `necro.cloak.humanize`, and documented adapter options
 - Paths: `platform.extrusionPath` (where files/screenshots are saved), `platform.profilesPath` (browser profiles)
 
 ## Development Commands
@@ -112,8 +113,8 @@ Task type and name must be alphanumeric (validated by `necrohelp.IsAlphanumeric(
 ### FreeBSD Support
 The platform uses a hack to make Puppeteer work on FreeBSD by mocking `os.arch()` to return 'arm64' and symlinking Chrome to `/usr/bin/chromium-browser` (see cluster.js:30-48).
 
-### Stealth Plugin
-Puppeteer-extra with stealth plugin is used to avoid bot detection (necrobrowser.js:40).
+### Cloakbrowser launcher
+Cloakbrowser is an optional ESM Puppeteer adapter selected by `necro.cloak.enabled`. `puppeteer/launcher.js` bridges it into the CommonJS runtime. Stock Puppeteer remains default; use Cloakbrowser only for authorized lab/CTF targets.
 
 ### Cookie Handling
 For Office365 tasks, both `.office365.com` AND `.login.microsoftonline.com` cookies are required (37 total) for full session control across app switches (see office365/necrotask.js:99-101 comment).
@@ -130,9 +131,8 @@ Required operations must propagate failures. Update status with `db.UpdateTaskSt
 ## Dependencies
 
 Install with `npm install`. Key dependencies:
-- `puppeteer` (v19.2.2) - Browser automation
-- `@muraenateam/puppeteer-cluster` - Custom cluster manager (devDep, used in production)
-- `puppeteer-extra` + `puppeteer-extra-plugin-stealth` - Stealth mode
+- `puppeteer` - Default browser automation
+- `cloakbrowser` + `puppeteer-core` - Optional Cloakbrowser launcher dependencies
 - `better-sqlite3` - Local task/session persistence
 - `express` - REST API
 - `toml` - Config parsing
